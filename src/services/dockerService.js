@@ -9,7 +9,20 @@ function getNextPort() {
   return nextPort++;
 }
 
-// Create an attacker container with weTTY port mapping
+// Extract gotty random URL from container logs
+async function getGottyUrl(container) {
+  try {
+    const logs = await container.logs({ stdout: true, stderr: true });
+    const logString = logs.toString();
+    const match = logString.match(/http:\/\/\[::1\]:3000\/(\w+)\//);
+    return match ? match[1] : null;
+  } catch (error) {
+    console.error('Error extracting gotty URL:', error);
+    return null;
+  }
+}
+
+// Create an attacker container with gotty port mapping
 async function createAttacker(name) {
   try {
     const containerName = name || `attacker-${Date.now()}`;
@@ -39,12 +52,19 @@ async function createAttacker(name) {
     // Start the container
     await container.start();
 
+    // Wait a moment for gotty to start and write logs
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    // Extract the random URL path
+    const randomPath = await getGottyUrl(container);
+
     return {
       id: container.id,
       name: containerName,
       image: 'mits-attacker:latest',
       port: hostPort,
-      terminal_url: `http://localhost:${hostPort}`
+      random_path: randomPath,
+      terminal_url: randomPath ? `http://localhost:${hostPort}/${randomPath}/` : `http://localhost:${hostPort}/`
     };
   } catch (error) {
     throw new Error(`Docker create attacker failed: ${error.message}`);

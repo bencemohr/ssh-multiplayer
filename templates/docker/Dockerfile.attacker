@@ -3,7 +3,13 @@ FROM node:18-alpine
 # Install build dependencies for native modules
 RUN apk add --no-cache \
     build-base \
-    python3
+    python3 \
+    go
+
+# Install gotty
+RUN go install github.com/sorenisanerd/gotty@latest && \
+    cp /root/go/bin/gotty /usr/local/bin/gotty && \
+    rm -rf /root/go
 
 # Install common pentesting/hacking tools
 RUN apk add --no-cache \
@@ -23,15 +29,12 @@ RUN apk add --no-cache \
     bind-tools \
     iputils
 
-# Install weTTY globally
-RUN npm install -g wetty
-
 # Set bash as default shell
 SHELL ["/bin/bash", "-c"]
 
-# Expose weTTY port
+# Expose gotty port
 EXPOSE 3000
 
-# Start weTTY with bash shell
-ENTRYPOINT ["wetty", "--base", "/", "--port", "3000", "--", "bash", "-i"]
+# Start gotty with random URL, write enabled, and bash shell
+ENTRYPOINT ["gotty", "-w", "--port", "3000", "--random-url", "bash"]
 CMD []
