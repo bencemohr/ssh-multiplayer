@@ -1,0 +1,6 @@
+# Build context files to exclude
+node_modules/
+.git/
+.env
+*.log
+.DS_Store
