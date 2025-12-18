@@ -1,0 +1,15 @@
+{
+  "name": "Attacker",
+  "image": "mits-attacker:latest",
+  "description": "Lightweight attacker container with pentesting tools and weTTY terminal access",
+  "ports": ["3000"],
+  "environment": {
+    "PATH": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+  },
+  "volumes": [],
+  "tty": true,
+  "stdin_open": true,
+  "exposed_ports": {
+    "3000/tcp": {}
+  }
+}

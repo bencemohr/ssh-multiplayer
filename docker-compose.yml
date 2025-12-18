@@ -54,5 +54,15 @@ services:
       - postgres
     restart: unless-stopped
 
+  # Testing UI
+  testing-ui:
+    build: ./testing-ui
+    container_name: mits-testing-ui
+    ports:
+      - "3001:3001"
+    depends_on:
+      - api
+    restart: unless-stopped
+
 volumes:
   postgres_data:

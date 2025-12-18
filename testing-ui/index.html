@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>API Testing UI</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    h1 {
+      color: #333;
+      border-bottom: 2px solid #007bff;
+      padding-bottom: 10px;
+    }
+    .section {
+      background: white;
+      padding: 20px;
+      margin: 20px 0;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    h2 {
+      color: #007bff;
+      margin-top: 0;
+    }
+    .endpoint {
+      display: flex;
+      gap: 10px;
+      margin: 10px 0;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    input {
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      flex: 1;
+      min-width: 200px;
+    }
+    button {
+      padding: 8px 15px;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    button:hover {
+      background: #0056b3;
+    }
+    .response {
+      margin-top: 20px;
+      padding: 15px;
+      background: #f9f9f9;
+      border-left: 4px solid #28a745;
+      border-radius: 4px;
+      max-height: 300px;
+      overflow: auto;
+      display: none;
+    }
+    .response.show {
+      display: block;
+    }
+    .error {
+      border-left-color: #dc3545;
+    }
+    pre {
+      margin: 0;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+    .label {
+      font-weight: bold;
+      color: #555;
+      min-width: 100px;
+    }
+  </style>
+</head>
+<body>
+  <h1>🧪 API Testing UI</h1>
+  <p>Development testing interface. Endpoints call: <code>http://localhost:3000/api</code></p>
+
+  <!-- Health Check -->
+  <div class="section">
+    <h2>Health Check</h2>
+    <div class="endpoint">
+      <button onclick="testEndpoint('GET', '/')">GET /api</button>
+    </div>
+  </div>
+
+  <!-- Attacker Container -->
+  <div class="section">
+    <h2>Create Attacker</h2>
+    <div class="endpoint">
+      <span class="label">Name (optional):</span>
+      <input type="text" id="attackerName" placeholder="e.g., attacker-1">
+      <button onclick="createAttacker()">POST /createattacker</button>
+    </div>
+  </div>
+
+  <!-- Response -->
+  <div id="response" class="response">
+    <strong>Response:</strong>
+    <pre id="responseText"></pre>
+  </div>
+
+  <script>
+    const API_URL = 'http://localhost:3000/api';
+
+    async function testEndpoint(method, endpoint) {
+      try {
+        const response = await fetch(`${API_URL}${endpoint}`, { method });
+        const data = await response.json();
+        showResponse(data, response.status);
+      } catch (error) {
+        showResponse({ error: error.message }, 'error');
+      }
+    }
+
+    async function createAttacker() {
+      const name = document.getElementById('attackerName').value;
+
+      try {
+        const response = await fetch(`${API_URL}/createattacker`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: name || undefined })
+        });
+        const data = await response.json();
+        showResponse(data, response.status);
+      } catch (error) {
+        showResponse({ error: error.message }, 'error');
+      }
+    }
+
+    function showResponse(data, status) {
+      const responseDiv = document.getElementById('response');
+      const responseText = document.getElementById('responseText');
+      responseText.textContent = JSON.stringify(data, null, 2);
+      responseDiv.classList.add('show');
+
+      if (status === 'error' || (typeof status === 'number' && status >= 400)) {
+        responseDiv.classList.add('error');
+      } else {
+        responseDiv.classList.remove('error');
+      }
+    }
+  </script>
+</body>
+</html>

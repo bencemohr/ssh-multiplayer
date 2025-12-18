@@ -1,0 +1,37 @@
+FROM node:18-alpine
+
+# Install build dependencies for native modules
+RUN apk add --no-cache \
+    build-base \
+    python3
+
+# Install common pentesting/hacking tools
+RUN apk add --no-cache \
+    bash \
+    curl \
+    wget \
+    netcat-openbsd \
+    nmap \
+    git \
+    openssh-client \
+    vim \
+    nano \
+    python3 \
+    py3-pip \
+    tcpdump \
+    dnsmasq \
+    bind-tools \
+    iputils
+
+# Install weTTY globally
+RUN npm install -g wetty
+
+# Set bash as default shell
+SHELL ["/bin/bash", "-c"]
+
+# Expose weTTY port
+EXPOSE 3000
+
+# Start weTTY with bash shell
+ENTRYPOINT ["wetty", "--base", "/", "--port", "3000", "--", "bash", "-i"]
+CMD []
