@@ -36,6 +36,12 @@ async function createAttacker(name) {
       AttachStdin: true,
       AttachStdout: true,
       AttachStderr: true,
+      Labels: {
+        'app': 'mits-multiplayer',
+        'type': 'attacker',
+        'template': 'attacker',
+        'created_at': new Date().toISOString()
+      },
       ExposedPorts: {
         '3000/tcp': {}
       },

@@ -1,0 +1,35 @@
+FROM alpine:latest
+
+# Install SSH server and utilities
+RUN apk add --no-cache openssh bash curl
+
+# Create root user with weak password
+RUN echo "root:password123" | chpasswd
+
+# SSH Configuration with vulnerabilities
+RUN mkdir -p /etc/ssh && \
+    ssh-keygen -A
+
+# Create sshd_config with misconfigurations
+RUN echo "Port 22" > /etc/ssh/sshd_config && \
+    echo "PermitRootLogin yes" >> /etc/ssh/sshd_config && \
+    echo "PasswordAuthentication yes" >> /etc/ssh/sshd_config && \
+    echo "PubkeyAuthentication no" >> /etc/ssh/sshd_config && \
+    echo "PermitEmptyPasswords no" >> /etc/ssh/sshd_config && \
+    echo "X11Forwarding yes" >> /etc/ssh/sshd_config && \
+    echo "LogLevel DEBUG" >> /etc/ssh/sshd_config && \
+    echo "ForceCommand /usr/local/bin/login-logger.sh" >> /etc/ssh/sshd_config
+
+# Copy login logger script
+COPY login-logger.sh /usr/local/bin/login-logger.sh
+RUN chmod +x /usr/local/bin/login-logger.sh
+
+# Create a flag file in root directory
+RUN echo "FLAG{ssh_default_credentials_vulnerable}" > /root/flag.txt && \
+    chmod 644 /root/flag.txt
+
+# Expose SSH port
+EXPOSE 22
+
+# Start SSH server
+ENTRYPOINT ["/usr/sbin/sshd", "-D"]
