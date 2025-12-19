@@ -17,4 +17,8 @@ router.post('/createattacker', controller.createAttacker);
 // Get terminal URL for a container
 router.get('/containers/:id/terminal', controller.getTerminal);
 
+// POST /api/breach
+// Log a breach/login event from container
+router.post('/breach', controller.breach);
+
 module.exports = router;

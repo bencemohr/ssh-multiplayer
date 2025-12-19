@@ -39,7 +39,31 @@ async function getTerminal(req, res) {
   }
 }
 
+async function breach(req, res) {
+  try {
+    const { remote_ip, username, container_id, timestamp } = req.body;
+    
+    // TODO: Save to database
+    console.log('[BREACH LOGGED]', {
+      container_id,
+      username,
+      remote_ip,
+      timestamp,
+      logged_at: new Date().toISOString()
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Breach logged successfully'
+    });
+  } catch (error) {
+    console.error('Error logging breach:', error);
+    res.status(500).json({ error: error.message });
+  }
+}
+
 module.exports = {
   createAttacker,
   getTerminal,
+  breach
 };
