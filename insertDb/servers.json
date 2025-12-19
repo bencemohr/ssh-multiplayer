@@ -1,0 +1,15 @@
+{
+    "Servers": {
+        "1": {
+            "Name": "CTF_Server",
+            "Group": "Servers",
+            "Host": "postgres",
+            "Port": 5432,
+            "MaintenanceDB": "ctfDatabase",
+            "Username": "ctfAdmin",
+            "Password": "@{POSTGRES_PASSWORD}",
+            "SSLMode": "prefer",
+            "TunnelMethod": "None"
+        }
+    }
+}
