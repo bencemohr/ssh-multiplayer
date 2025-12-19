@@ -62,8 +62,34 @@ async function breach(req, res) {
   }
 }
 
+// POST /api/logs/hint-accessed
+// Log when a player accesses a hint
+async function hintAccessed(req, res) {
+  try {
+    const { container_id, username, level, timestamp } = req.body;
+    
+    // TODO: Save to database
+    console.log('[HINT ACCESSED]', {
+      container_id,
+      username,
+      level,
+      timestamp,
+      logged_at: new Date().toISOString()
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Hint access logged successfully'
+    });
+  } catch (error) {
+    console.error('Error logging hint access:', error);
+    res.status(500).json({ error: error.message });
+  }
+}
+
 module.exports = {
   createAttacker,
   getTerminal,
-  breach
+  breach,
+  hintAccessed
 };

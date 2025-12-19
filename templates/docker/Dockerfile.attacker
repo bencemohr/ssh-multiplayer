@@ -1,15 +1,16 @@
-FROM node:18-alpine
+FROM golang:alpine
 
 # Install build dependencies for native modules
 RUN apk add --no-cache \
     build-base \
     python3 \
-    go
+    git
 
 # Install gotty
-RUN go install github.com/sorenisanerd/gotty@latest && \
-    cp /root/go/bin/gotty /usr/local/bin/gotty && \
-    rm -rf /root/go
+RUN GOBIN=/usr/local/bin go install github.com/sorenisanerd/gotty@latest
+
+# Install sshamble (SSH security scanner)
+RUN GOBIN=/usr/local/bin go install github.com/runZeroInc/sshamble@latest
 
 # Install common pentesting/hacking tools
 RUN apk add --no-cache \
@@ -27,7 +28,17 @@ RUN apk add --no-cache \
     tcpdump \
     dnsmasq \
     bind-tools \
-    iputils
+    iputils \
+    john
+
+# Download rockyou wordlist for password cracking
+RUN mkdir -p /usr/share/wordlists && \
+    wget -q https://github.com/praetorian-code/Hacking-Tools/raw/master/wordlists/rockyou.txt -O /usr/share/wordlists/rockyou.txt 2>/dev/null || \
+    echo "rockyou.txt optional, tools still functional"
+
+# Copy hint script
+COPY hint.sh /usr/local/bin/hint
+RUN chmod +x /usr/local/bin/hint
 
 # Set bash as default shell
 SHELL ["/bin/bash", "-c"]

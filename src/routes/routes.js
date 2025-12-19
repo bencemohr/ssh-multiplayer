@@ -21,4 +21,8 @@ router.get('/containers/:id/terminal', controller.getTerminal);
 // Log a breach/login event from container
 router.post('/breach', controller.breach);
 
+// POST /api/logs/hint-accessed
+// Log when a player accesses a hint
+router.post('/logs/hint-accessed', controller.hintAccessed);
+
 module.exports = router;

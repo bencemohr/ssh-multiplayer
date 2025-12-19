@@ -1,0 +1,16 @@
+{
+  "name": "level2",
+  "image": "mits-level2:latest",
+  "description": "Level 2: SSH private key file exposure",
+  "type": "victim",
+  "difficulty": "intermediate",
+  "vulnerabilities": [
+    "SSH private key stored with world-readable permissions (chmod 644)",
+    "Private key has no passphrase",
+    "Key is accessible from attacker container"
+  ],
+  "ports": {
+    "ssh": 22
+  },
+  "objective": "Find the exposed SSH private key and use it to login as sshuser"
+}
