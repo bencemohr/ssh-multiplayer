@@ -1,0 +1,18 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --font-cousine: 'Cousine', monospace;
+    --font-arimo: 'Arimo', sans-serif;
+  }
+  
+  body {
+    font-family: var(--font-arimo);
+  }
+  
+  .font-mono {
+    font-family: var(--font-cousine);
+  }
+}
