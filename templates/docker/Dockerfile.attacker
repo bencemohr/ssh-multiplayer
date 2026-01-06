@@ -37,7 +37,7 @@ RUN mkdir -p /usr/share/wordlists && \
     echo "rockyou.txt optional, tools still functional"
 
 # Copy hint script
-COPY hint.sh /usr/local/bin/hint
+COPY templates/docker/hint.sh /usr/local/bin/hint
 RUN chmod +x /usr/local/bin/hint
 
 # Set bash as default shell
@@ -46,6 +46,6 @@ SHELL ["/bin/bash", "-c"]
 # Expose gotty port
 EXPOSE 3000
 
-# Start gotty with random URL, write enabled, and bash shell
-ENTRYPOINT ["gotty", "-w", "--port", "3000", "--random-url", "bash"]
+# Start gotty with consistent path (uses container ID as path), write enabled, and bash shell
+ENTRYPOINT ["sh", "-c", "gotty -w --port 3000 --path /$(hostname)/ bash"]
 CMD []

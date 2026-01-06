@@ -84,7 +84,7 @@
 </head>
 <body>
   <h1>🧪 API Testing UI</h1>
-  <p>Development testing interface. Endpoints call: <code>http://localhost:3000/api</code></p>
+  <p>Development testing interface. Endpoints call: <code id="apiUrlDisplay">Loading...</code></p>
 
   <!-- Health Check -->
   <div class="section">
@@ -111,7 +111,9 @@
   </div>
 
   <script>
-    const API_URL = 'http://localhost:3000/api';
+    // Dynamically use the server's IP/hostname
+    const API_URL = `http://${window.location.hostname}:3000/api`;
+    document.getElementById('apiUrlDisplay').textContent = API_URL;
 
     async function testEndpoint(method, endpoint) {
       try {

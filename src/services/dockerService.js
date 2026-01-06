@@ -9,15 +9,14 @@ function getNextPort() {
   return nextPort++;
 }
 
-// Extract gotty random URL from container logs
-async function getGottyUrl(container) {
+// Get container hostname (used as gotty path prefix)
+async function getContainerHostname(container) {
   try {
-    const logs = await container.logs({ stdout: true, stderr: true });
-    const logString = logs.toString();
-    const match = logString.match(/http:\/\/\[::1\]:3000\/(\w+)\//);
-    return match ? match[1] : null;
+    const data = await container.inspect();
+    // Use the last 12 chars of container ID (short ID = hostname)
+    return data.Id.substring(0, 12);
   } catch (error) {
-    console.error('Error extracting gotty URL:', error);
+    console.error('Error getting container hostname:', error);
     return null;
   }
 }
@@ -38,7 +37,7 @@ async function createAttacker(name) {
       AttachStderr: true,
       Labels: {
         'app': 'mits-multiplayer',
-        'type': 'attacker',
+        'type': 'MITS-ATTACKER',
         'template': 'attacker',
         'created_at': new Date().toISOString()
       },
@@ -55,41 +54,87 @@ async function createAttacker(name) {
     // Store port mapping
     containerPorts[container.id] = hostPort;
 
-    // Start the container
+    // Start the container temporarily to initialize it
     await container.start();
 
-    // Wait a moment for gotty to start and write logs
+    // Wait a moment for gotty to start and container to initialize
     await new Promise(resolve => setTimeout(resolve, 500));
 
-    // Extract the random URL path
-    const randomPath = await getGottyUrl(container);
+    // Get container hostname (short container ID)
+    const hostname = await getContainerHostname(container);
+
+    // Stop the container - admin will start it when needed
+    await container.stop();
 
     return {
       id: container.id,
       name: containerName,
       image: 'mits-attacker:latest',
       port: hostPort,
-      random_path: randomPath,
-      terminal_url: randomPath ? `http://localhost:${hostPort}/${randomPath}/` : `http://localhost:${hostPort}/`
+      hostname: hostname,
+      terminal_url: hostname ? `http://localhost:${hostPort}/${hostname}/` : `http://localhost:${hostPort}/`,
+      status: 'stopped'
     };
   } catch (error) {
     throw new Error(`Docker create attacker failed: ${error.message}`);
   }
 }
 
-// Get terminal URL for a container
-function getTerminalUrl(containerId) {
-  const port = containerPorts[containerId];
-  if (!port) {
-    throw new Error(`Container ${containerId} not found or no port mapping`);
+// Stop containers by label
+async function stopContainersByLabel(labelKey, labelValue) {
+  try {
+    const filters = {};
+    filters['label'] = [`${labelKey}=${labelValue}`];
+    
+    const containers = await docker.listContainers({ filters, all: true });
+    const stopped = [];
+
+    for (const containerInfo of containers) {
+      const container = docker.getContainer(containerInfo.Id);
+      if (containerInfo.State !== 'exited') {
+        await container.stop();
+        stopped.push({
+          id: containerInfo.Id.substring(0, 12),
+          name: containerInfo.Names[0] || 'unknown'
+        });
+      }
+    }
+
+    return stopped;
+  } catch (error) {
+    throw new Error(`Failed to stop containers: ${error.message}`);
   }
-  return {
-    terminal_url: `http://localhost:${port}`
-  };
+}
+
+// Start containers by label
+async function startContainersByLabel(labelKey, labelValue) {
+  try {
+    const filters = {};
+    filters['label'] = [`${labelKey}=${labelValue}`];
+    
+    const containers = await docker.listContainers({ filters, all: true });
+    const started = [];
+
+    for (const containerInfo of containers) {
+      const container = docker.getContainer(containerInfo.Id);
+      if (containerInfo.State === 'exited') {
+        await container.start();
+        started.push({
+          id: containerInfo.Id.substring(0, 12),
+          name: containerInfo.Names[0] || 'unknown'
+        });
+      }
+    }
+
+    return started;
+  } catch (error) {
+    throw new Error(`Failed to start containers: ${error.message}`);
+  }
 }
 
 module.exports = {
   createAttacker,
-  getTerminalUrl,
+  stopContainersByLabel,
+  startContainersByLabel,
   containerPorts
 };

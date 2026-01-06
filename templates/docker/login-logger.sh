@@ -1,16 +1,16 @@
 #!/bin/bash
 
 # Extract login information
-USERNAME=${SSH_USER:-$USER}
+USERNAME="${SSH_USER:-$USER}"
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 CONTAINER_ID=$(cat /etc/hostname)
-REMOTE_IP=$(echo $SSH_CLIENT | awk '{print $1}')
+REMOTE_IP=$(echo "$SSH_CLIENT" | awk '{print $1}')
 API_HOST=${API_HOST:-"api"}
 API_PORT=${API_PORT:-"3000"}
 
 # Log the access to API (non-blocking)
 {
-  curl -s -X POST "http://${API_HOST}:${API_PORT}/api/breach" \
+  curl -s -X POST "http://${API_HOST}:${API_PORT}/api/logs/breach" \
     -H "Content-Type: application/json" \
     -d "{
       \"username\": \"${USERNAME}\",
