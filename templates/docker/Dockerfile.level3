@@ -1,0 +1,55 @@
+FROM alpine:latest
+
+# Install SSH server and utilities
+RUN apk add --no-cache openssh bash curl
+
+# Create a regular user
+RUN addgroup -S appuser && adduser -S appuser -G appuser
+
+# SSH Configuration - only key auth allowed
+RUN mkdir -p /etc/ssh && \
+    ssh-keygen -A
+
+RUN echo "Port 22" > /etc/ssh/sshd_config && \
+    echo "PermitRootLogin no" >> /etc/ssh/sshd_config && \
+    echo "PasswordAuthentication no" >> /etc/ssh/sshd_config && \
+    echo "PubkeyAuthentication yes" >> /etc/ssh/sshd_config && \
+    echo "LogLevel DEBUG" >> /etc/ssh/sshd_config && \
+    echo "Banner /etc/motd" >> /etc/ssh/sshd_config && \
+    echo "ForceCommand /usr/local/bin/login-logger.sh" >> /etc/ssh/sshd_config
+
+# Create SSH key pair with weak passphrase "password"
+RUN mkdir -p /home/appuser/.ssh && \
+    ssh-keygen -t rsa -N "password" -f /home/appuser/.ssh/id_rsa -C "appuser@level3" && \
+    cp /home/appuser/.ssh/id_rsa.pub /home/appuser/.ssh/authorized_keys && \
+    chown -R appuser:appuser /home/appuser/.ssh && \
+    chmod 700 /home/appuser/.ssh && \
+    chmod 644 /home/appuser/.ssh/authorized_keys && \
+    chmod 600 /home/appuser/.ssh/id_rsa
+
+# Leak the private key (copy to a readable location)
+RUN cp /home/appuser/.ssh/id_rsa /tmp/leaked_key.pem && \
+    chmod 644 /tmp/leaked_key.pem
+
+# Create MOTD
+RUN echo "╔════════════════════════════════════════════╗" > /etc/motd && \
+    echo "║   LEVEL 3: SSH KEY WITH WEAK PASSPHRASE   ║" >> /etc/motd && \
+    echo "╚════════════════════════════════════════════╝" >> /etc/motd && \
+    echo "" >> /etc/motd && \
+    echo "🎉 LEVEL 3 CAPTURED! 🎉" >> /etc/motd && \
+    echo "" >> /etc/motd && \
+    echo "You cracked the passphrase and gained access." >> /etc/motd && \
+    echo "FLAG CAPTURED!" >> /etc/motd
+
+# Copy login logger script
+COPY templates/docker/login-logger.sh /usr/local/bin/login-logger.sh
+RUN chmod +x /usr/local/bin/login-logger.sh
+
+# Add container labels
+LABEL type=MITS-VICTIM app=mits-multiplayer
+
+# Expose SSH port
+EXPOSE 22
+
+# Start SSH server
+ENTRYPOINT ["/usr/sbin/sshd", "-D"]

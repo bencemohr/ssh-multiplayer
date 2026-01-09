@@ -1,0 +1,16 @@
+{
+  "name": "level3",
+  "image": "mits-level3:latest",
+  "description": "Level 3: SSH key with weak passphrase",
+  "type": "victim",
+  "difficulty": "advanced",
+  "vulnerabilities": [
+    "SSH private key leaked to /tmp/leaked_key.pem",
+    "Private key protected with weak passphrase: 'password'",
+    "Passphrase is dictionary crackable (john, hashcat)"
+  ],
+  "ports": {
+    "ssh": 22
+  },
+  "objective": "Find the leaked private key, crack the passphrase, and SSH in as appuser"
+}

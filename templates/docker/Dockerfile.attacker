@@ -1,0 +1,51 @@
+FROM golang:alpine
+
+# Install build dependencies for native modules
+RUN apk add --no-cache \
+    build-base \
+    python3 \
+    git
+
+# Install gotty
+RUN GOBIN=/usr/local/bin go install github.com/sorenisanerd/gotty@latest
+
+# Install sshamble (SSH security scanner)
+RUN GOBIN=/usr/local/bin go install github.com/runZeroInc/sshamble@latest
+
+# Install common pentesting/hacking tools
+RUN apk add --no-cache \
+    bash \
+    curl \
+    wget \
+    netcat-openbsd \
+    nmap \
+    git \
+    openssh-client \
+    vim \
+    nano \
+    python3 \
+    py3-pip \
+    tcpdump \
+    dnsmasq \
+    bind-tools \
+    iputils \
+    john
+
+# Download rockyou wordlist for password cracking
+RUN mkdir -p /usr/share/wordlists && \
+    wget -q https://github.com/praetorian-code/Hacking-Tools/raw/master/wordlists/rockyou.txt -O /usr/share/wordlists/rockyou.txt 2>/dev/null || \
+    echo "rockyou.txt optional, tools still functional"
+
+# Copy hint script
+COPY templates/docker/hint.sh /usr/local/bin/hint
+RUN chmod +x /usr/local/bin/hint
+
+# Set bash as default shell
+SHELL ["/bin/bash", "-c"]
+
+# Expose gotty port
+EXPOSE 3000
+
+# Start gotty with consistent path (uses container ID as path), write enabled, and bash shell
+ENTRYPOINT ["sh", "-c", "gotty -w --port 3000 --path /$(hostname)/ bash"]
+CMD []

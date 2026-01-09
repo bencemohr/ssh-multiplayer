@@ -1,0 +1,53 @@
+FROM alpine:latest
+
+# Install SSH server and utilities
+RUN apk add --no-cache openssh bash curl
+
+# Create a regular user with no password login allowed via password
+RUN addgroup -S sshuser && adduser -S sshuser -G sshuser
+
+# SSH Configuration - only key auth allowed
+RUN mkdir -p /etc/ssh && \
+    ssh-keygen -A
+
+RUN echo "Port 22" > /etc/ssh/sshd_config && \
+    echo "PermitRootLogin no" >> /etc/ssh/sshd_config && \
+    echo "PasswordAuthentication no" >> /etc/ssh/sshd_config && \
+    echo "PubkeyAuthentication yes" >> /etc/ssh/sshd_config && \
+    echo "LogLevel DEBUG" >> /etc/ssh/sshd_config && \
+    echo "Banner /etc/motd" >> /etc/ssh/sshd_config && \
+    echo "ForceCommand /usr/local/bin/login-logger.sh" >> /etc/ssh/sshd_config
+
+# Create authorized_keys with a vulnerable (world-readable) private key
+RUN mkdir -p /home/sshuser/.ssh && \
+    ssh-keygen -t rsa -N "" -f /home/sshuser/.ssh/id_rsa && \
+    cp /home/sshuser/.ssh/id_rsa.pub /home/sshuser/.ssh/authorized_keys && \
+    chown -R sshuser:sshuser /home/sshuser/.ssh && \
+    chmod 700 /home/sshuser/.ssh && \
+    chmod 644 /home/sshuser/.ssh/authorized_keys
+
+# Make private key world-readable (VULNERABLE)
+RUN chmod 644 /home/sshuser/.ssh/id_rsa
+
+# Create MOTD
+RUN echo "╔════════════════════════════════════════════╗" > /etc/motd && \
+    echo "║   LEVEL 2: SSH KEY FILE EXPOSURE          ║" >> /etc/motd && \
+    echo "╚════════════════════════════════════════════╝" >> /etc/motd && \
+    echo "" >> /etc/motd && \
+    echo "🎉 LEVEL 2 CAPTURED! 🎉" >> /etc/motd && \
+    echo "" >> /etc/motd && \
+    echo "You found and used the exposed SSH private key." >> /etc/motd && \
+    echo "FLAG CAPTURED!" >> /etc/motd
+
+# Copy login logger script
+COPY templates/docker/login-logger.sh /usr/local/bin/login-logger.sh
+RUN chmod +x /usr/local/bin/login-logger.sh
+
+# Add container labels
+LABEL type=MITS-VICTIM app=mits-multiplayer
+
+# Expose SSH port
+EXPOSE 22
+
+# Start SSH server
+ENTRYPOINT ["/usr/sbin/sshd", "-D"]

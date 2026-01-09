@@ -1,0 +1,21 @@
+{
+  "name": "level1",
+  "image": "mits-level1:latest",
+  "description": "Level 1: SSH with default credentials and root login enabled",
+  "type": "victim",
+  "difficulty": "beginner",
+  "vulnerabilities": [
+    "Default credentials (root:password123)",
+    "Root login permitted",
+    "Password authentication enabled",
+    "No key authentication required",
+    "SSH running on standard port 22"
+  ],
+  "ports": {
+    "ssh": 22
+  },
+  "environment": {
+    "ROOT_PASSWORD": "password123"
+  },
+  "objective": "Gain SSH access to the container and retrieve the flag from /root/flag.txt"
+}

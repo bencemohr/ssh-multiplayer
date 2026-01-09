@@ -1,8 +1,10 @@
 services:
+  # Next.js Frontend
   nextjs:
     build:
       context: .
       dockerfile: Dockerfile
+    container_name: mits-nextjs
     ports:
       - "3000:3000"
     volumes:
@@ -17,9 +19,33 @@ services:
       postgres:
         condition: service_healthy
 
+  # API Server
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: mits-api
+    ports:
+      - "3001:3001"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      NODE_ENV: production
+      PORT: 3001
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
+
+  # PostgreSQL Database
   postgres:
     image: postgres:16
-    container_name: postgres
+    container_name: mits-db
     environment:
       - POSTGRES_USER=${DB_USER}
       - POSTGRES_PASSWORD=${DB_PASSWORD}
@@ -36,9 +62,10 @@ services:
       timeout: 5s
       retries: 5
 
+  # pgAdmin4 - Database Management UI
   pgadmin:
     image: dpage/pgadmin4
-    container_name: pgadmin
+    container_name: mits-pgadmin
     restart: unless-stopped
     ports:
       - "8001:80"
