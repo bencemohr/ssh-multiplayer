@@ -1,4 +1,4 @@
-CREATE TABLE "session"(
+CREATE TABLE IF NOT EXISTS "session"(
     "id" BIGINT NOT NULL PRIMARY KEY,
     "sessionCode" BIGINT NOT NULL,
     "durationSecond" BIGINT NOT NULL,
@@ -17,7 +17,7 @@ CREATE TABLE "session"(
 );
 
 
-CREATE TABLE "playerContainer"(
+CREATE TABLE IF NOT EXISTS "playerContainer"(
     "playerContainer_id" BIGINT NOT NULL PRIMARY KEY,
     "containerCode" BIGINT NOT NULL UNIQUE,
     "container_url" TEXT NOT NULL,
@@ -40,13 +40,13 @@ CREATE TABLE "playerContainer"(
     ) NOT NULL
 );
 
-CREATE TABLE "user"(
+CREATE TABLE IF NOT EXISTS "user"(
     "user_id" BIGINT NOT NULL PRIMARY KEY,
     "nickName" TEXT NOT NULL UNIQUE,
     "playerContainer_id" BIGINT REFERENCES "playerContainer"("playerContainer_id")
 );
 
-CREATE TABLE "container_logs"(
+CREATE TABLE IF NOT EXISTS "container_logs"(
     "container_logs_id" BIGINT NOT NULL PRIMARY KEY,
     "event_type" VARCHAR(255) CHECK (
         "event_type" IN (
@@ -62,13 +62,13 @@ CREATE TABLE "container_logs"(
     "point" BIGINT
 );
 
-CREATE TABLE "admin"(
+CREATE TABLE IF NOT EXISTS "admin"(
     "admin_id" BIGINT NOT NULL PRIMARY KEY,
     "hashedPassword" TEXT NOT NULL,
     "nickName" TEXT NOT NULL
 );
 
-CREATE TABLE "level"(
+CREATE TABLE IF NOT EXISTS "level"(
     "level_id" BIGINT NOT NULL PRIMARY KEY,
     "session_id" BIGINT NOT NULL REFERENCES "session"("id"),
     "service_name" TEXT NOT NULL UNIQUE,
