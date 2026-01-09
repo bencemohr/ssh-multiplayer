@@ -7,6 +7,7 @@ type Theme = 'dark' | 'light'
 interface ThemeContextType {
   theme: Theme
   isDark: boolean
+  mounted: boolean
   toggleTheme: () => void
   classes: {
     bgMain: string
@@ -28,14 +29,27 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined)
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
+  // Always start with 'dark' to match server render, then sync with localStorage
   const [theme, setTheme] = useState<Theme>('dark')
+  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
+    // Read theme from localStorage after mount
     const savedTheme = localStorage.getItem('theme') as Theme | null
     if (savedTheme) {
       setTheme(savedTheme)
+      document.documentElement.setAttribute('data-theme', savedTheme)
     }
+    setMounted(true)
   }, [])
+
+  useEffect(() => {
+    // Update data-theme attribute when theme changes (after initial mount)
+    if (mounted) {
+      document.documentElement.setAttribute('data-theme', theme)
+      localStorage.setItem('theme', theme)
+    }
+  }, [theme, mounted])
 
   const toggleTheme = useCallback(() => {
     setTheme(prev => {
@@ -50,6 +64,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     return {
       theme,
       isDark,
+      mounted,
       toggleTheme,
       classes: {
         bgMain: isDark ? 'bg-[#0a0a0f]' : 'bg-[#f9fafb]',
@@ -67,11 +82,15 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         hoverBg: isDark ? 'hover:bg-[#1a1a28]' : 'hover:bg-[#f3f4f6]',
       }
     }
-  }, [theme, toggleTheme])
+  }, [theme, mounted, toggleTheme])
 
+  // Use CSS to hide content until mounted to prevent flash
+  // The inline script in layout.tsx sets the correct background immediately
   return (
     <ThemeContext.Provider value={value}>
-      {children}
+      <div style={{ visibility: mounted ? 'visible' : 'hidden' }}>
+        {children}
+      </div>
     </ThemeContext.Provider>
   )
 }

@@ -32,7 +32,8 @@ export default function JoinPage() {
   const [displayName, setDisplayName] = useState('')
 
   const { bgMain, bgCard, borderColor, titleColor, textPrimary, textSecondary, textTertiary, inputBg, inputBorder } = classes
-  const placeholderColor = isDark ? 'text-[#808090] placeholder-[#808090]' : 'text-[#9ca3af] placeholder-[#9ca3af]'
+  const inputDarkBg = isDark ? 'bg-[#0a0a0f] text-white' : `${inputBg} ${textTertiary}`
+  const placeholderColor = isDark ? 'placeholder-[#808090]' : 'placeholder-[#9ca3af]'
 
   return (
     <div className={`min-h-screen ${bgMain} ${textPrimary}`}>
@@ -55,7 +56,7 @@ export default function JoinPage() {
                   placeholder="Example: 123456"
                   value={sessionId}
                   onChange={(e) => setSessionId(e.target.value)}
-                  className={`w-full ${inputBg} border ${inputBorder} rounded px-4 py-3 ${placeholderColor} focus:outline-none focus:border-[#0f8] transition-colors font-mono`}
+                  className={`w-full ${inputDarkBg} border ${inputBorder} rounded px-4 py-3 ${placeholderColor} focus:outline-none focus:border-[#0f8] transition-colors font-mono`}
                 />
                 <p className={`${textSecondary} text-sm mt-2`}>A 6-digit code shown on the main screen</p>
               </div>
@@ -67,7 +68,7 @@ export default function JoinPage() {
                   placeholder="Example: alexk123"
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
-                  className={`w-full ${inputBg} border ${inputBorder} rounded px-4 py-3 ${placeholderColor} focus:outline-none focus:border-[#0f8] transition-colors font-mono`}
+                  className={`w-full ${inputDarkBg} border ${inputBorder} rounded px-4 py-3 ${placeholderColor} focus:outline-none focus:border-[#0f8] transition-colors font-mono`}
                 />
                 <p className={`${textSecondary} text-sm mt-2`}>Use a unique gamer name for the leaderboard</p>
               </div>

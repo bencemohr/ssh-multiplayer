@@ -2,7 +2,7 @@
 
 import Header from '@/components/Header'
 import { useTheme } from '@/contexts/ThemeContext'
-import { memo, useMemo } from 'react'
+import { memo, useMemo, useState } from 'react'
 
 interface Participant {
   place: number
@@ -64,10 +64,29 @@ const ParticipantRow = memo(function ParticipantRow({
 
 export default function Home() {
   const { isDark, classes } = useTheme()
+  const [statusFilter, setStatusFilter] = useState<'All' | 'In progress' | 'Finished'>('All')
+  const [searchQuery, setSearchQuery] = useState('')
   
   // Use pre-computed classes from context
   const { bgMain, bgCard, borderColor, titleColor, textPrimary, textSecondary, textTertiary, inputBg, inputBorder, buttonSecondary, hoverRow } = classes
-  const placeholderColor = isDark ? 'text-[#808090] placeholder-[#808090]' : 'text-[#9ca3af] placeholder-[#9ca3af]'
+  const inputDarkBg = isDark ? 'bg-[#0a0a0f] text-white' : `${inputBg} ${textTertiary}`
+  const placeholderColor = isDark ? 'placeholder-[#808090]' : 'placeholder-[#9ca3af]'
+
+  // Filter participants based on status and search query
+  const filteredParticipants = useMemo(() => {
+    return participants.filter(participant => {
+      // Status filter
+      const statusMatch = statusFilter === 'All' || 
+        (statusFilter === 'Finished' && participant.status === 'Finished') ||
+        (statusFilter === 'In progress' && participant.status !== 'Finished')
+      
+      // Search filter
+      const searchMatch = searchQuery === '' || 
+        participant.name.toLowerCase().includes(searchQuery.toLowerCase())
+      
+      return statusMatch && searchMatch
+    })
+  }, [statusFilter, searchQuery])
 
   return (
     <div className={`min-h-screen ${bgMain} ${textPrimary}`}>
@@ -96,17 +115,34 @@ export default function Home() {
             </div>
             <div>
               <p className={`text-xs ${textSecondary} font-mono mb-2`}>REMAINING TIME</p>
-              <p className={`text-2xl ${textTertiary} font-mono`}>--:--</p>
+              <p className={`text-2xl ${textTertiary} font-mono`}>--</p>
             </div>
           </div>
         </div>
 
-        {/* Participants Table */}
-        <div className={`${bgCard} border ${borderColor} rounded-lg p-6 shadow-[0px_0px_30px_0px_rgba(0,255,136,0.1)]`}>
-          <h3 className={`text-xl font-mono ${textTertiary} mb-6`}>Session Participants</h3>
-          
-          {/* Search and Filters */}
-          <div className="flex justify-between items-center mb-6">
+        {/* Filters and Search */}
+        <div className={`${bgCard} border ${borderColor} rounded-lg p-6 mb-6 shadow-[0px_0px_20px_0px_rgba(0,255,136,0.1)]`}>
+          <div className="flex justify-between items-center">
+            <div className="flex gap-2">
+              <button 
+                onClick={() => setStatusFilter('All')}
+                className={`${statusFilter === 'All' ? 'bg-[#0f8] text-[#0a0a0f] shadow-[0px_0px_10px_0px_rgba(0,255,136,0.3)]' : `${buttonSecondary} ${textTertiary}`} px-4 py-2 rounded font-mono text-sm transition-all`}
+              >
+                All
+              </button>
+              <button 
+                onClick={() => setStatusFilter('In progress')}
+                className={`${statusFilter === 'In progress' ? 'bg-[#0f8] text-[#0a0a0f] shadow-[0px_0px_10px_0px_rgba(0,255,136,0.3)]' : `${buttonSecondary} ${textTertiary}`} px-4 py-2 rounded font-mono text-sm transition-all`}
+              >
+                In progress
+              </button>
+              <button 
+                onClick={() => setStatusFilter('Finished')}
+                className={`${statusFilter === 'Finished' ? 'bg-[#0f8] text-[#0a0a0f] shadow-[0px_0px_10px_0px_rgba(0,255,136,0.3)]' : `${buttonSecondary} ${textTertiary}`} px-4 py-2 rounded font-mono text-sm transition-all`}
+              >
+                Finished
+              </button>
+            </div>
             <div className="relative w-80">
               <svg className={`absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 ${textSecondary}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -114,23 +150,16 @@ export default function Home() {
               <input
                 type="text"
                 placeholder="Search by name..."
-                className={`w-full ${inputBg} border ${inputBorder} rounded pl-10 pr-4 py-2 ${placeholderColor} focus:outline-none focus:border-[#0f8] transition-colors`}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className={`w-full ${inputDarkBg} border ${inputBorder} rounded pl-10 pr-4 py-2 ${placeholderColor} focus:outline-none focus:border-[#0f8] transition-colors`}
               />
             </div>
-            <div className="flex gap-2">
-              <button className="bg-[#0f8] text-[#0a0a0f] px-4 py-2 rounded font-mono text-sm shadow-[0px_0px_10px_0px_rgba(0,255,136,0.3)]">
-                All
-              </button>
-              <button className={`${buttonSecondary} ${textTertiary} px-4 py-2 rounded font-mono text-sm transition-colors`}>
-                In progress
-              </button>
-              <button className={`${buttonSecondary} ${textTertiary} px-4 py-2 rounded font-mono text-sm transition-colors`}>
-                Finished
-              </button>
-            </div>
           </div>
+        </div>
 
-          {/* Table */}
+        {/* Leaderboard Table */}
+        <div className={`${bgCard} border ${borderColor} rounded-lg overflow-hidden shadow-[0px_0px_20px_0px_rgba(0,255,136,0.1)]`}>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
@@ -143,8 +172,8 @@ export default function Home() {
                 </tr>
               </thead>
               <tbody>
-                {participants.length > 0 ? (
-                  participants.map((participant) => (
+                {filteredParticipants.length > 0 ? (
+                  filteredParticipants.map((participant) => (
                     <ParticipantRow
                       key={participant.place}
                       participant={participant}
@@ -161,8 +190,10 @@ export default function Home() {
                         <svg className="w-12 h-12 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                         </svg>
-                        <p>No participants yet</p>
-                        <p className="text-sm mt-1 opacity-75">Waiting for players to join the session</p>
+                        <p>{participants.length === 0 ? 'No participants yet' : 'No matching participants'}</p>
+                        <p className="text-sm mt-1 opacity-75">
+                          {participants.length === 0 ? 'Waiting for players to join the session' : 'Try adjusting your filters'}
+                        </p>
                       </div>
                     </td>
                   </tr>

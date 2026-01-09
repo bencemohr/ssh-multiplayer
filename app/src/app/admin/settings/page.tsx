@@ -7,6 +7,7 @@ export default function AdminSettingsPage() {
   const { isDark, classes } = useTheme()
 
   const { bgCard, borderColor, titleColor, textPrimary, textSecondary, textTertiary, inputBg, inputBorder, buttonPrimary, buttonSecondary } = classes
+  const inputDarkBg = isDark ? 'bg-[#0a0a0f] text-white' : `${inputBg} ${textTertiary}`
 
   const [settings, setSettings] = useState({
     sessionDuration: 60,
@@ -20,6 +21,40 @@ export default function AdminSettingsPage() {
     pointsPerFlag: 500,
     firstBloodBonus: 250,
   })
+
+  // Danger zone confirmation states
+  const [clearSessionsConfirm, setClearSessionsConfirm] = useState('')
+  const [resetDbConfirm, setResetDbConfirm] = useState('')
+  const [showClearSessionsInput, setShowClearSessionsInput] = useState(false)
+  const [showResetDbInput, setShowResetDbInput] = useState(false)
+
+  const handleClearSessions = () => {
+    if (clearSessionsConfirm === 'clear-all-sessions') {
+      console.log('Clearing all sessions...')
+      alert('All sessions cleared!')
+      setClearSessionsConfirm('')
+      setShowClearSessionsInput(false)
+    }
+  }
+
+  const handleResetDatabase = () => {
+    if (resetDbConfirm === 'reset-database') {
+      console.log('Resetting database...')
+      alert('Database reset!')
+      setResetDbConfirm('')
+      setShowResetDbInput(false)
+    }
+  }
+
+  const handleClearSessionsInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.replace(/\s/g, '-').toLowerCase()
+    setClearSessionsConfirm(value)
+  }
+
+  const handleResetDbInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.replace(/\s/g, '-').toLowerCase()
+    setResetDbConfirm(value)
+  }
 
   const handleSave = () => {
     console.log('Saving settings:', settings)
@@ -46,7 +81,7 @@ export default function AdminSettingsPage() {
               type="number"
               value={settings.sessionDuration}
               onChange={(e) => setSettings({...settings, sessionDuration: parseInt(e.target.value)})}
-              className={`w-full ${inputBg} border ${inputBorder} rounded px-4 py-3 ${textTertiary} font-mono focus:outline-none focus:border-[#0f8]`}
+              className={`w-full ${inputDarkBg} border ${inputBorder} rounded px-4 py-3 font-mono focus:outline-none focus:border-[#0f8]`}
             />
           </div>
 
@@ -58,7 +93,7 @@ export default function AdminSettingsPage() {
               type="number"
               value={settings.maxPlayers}
               onChange={(e) => setSettings({...settings, maxPlayers: parseInt(e.target.value)})}
-              className={`w-full ${inputBg} border ${inputBorder} rounded px-4 py-3 ${textTertiary} font-mono focus:outline-none focus:border-[#0f8]`}
+              className={`w-full ${inputDarkBg} border ${inputBorder} rounded px-4 py-3 font-mono focus:outline-none focus:border-[#0f8]`}
             />
           </div>
 
@@ -70,7 +105,7 @@ export default function AdminSettingsPage() {
               type="number"
               value={settings.containerTimeout}
               onChange={(e) => setSettings({...settings, containerTimeout: parseInt(e.target.value)})}
-              className={`w-full ${inputBg} border ${inputBorder} rounded px-4 py-3 ${textTertiary} font-mono focus:outline-none focus:border-[#0f8]`}
+              className={`w-full ${inputDarkBg} border ${inputBorder} rounded px-4 py-3 font-mono focus:outline-none focus:border-[#0f8]`}
             />
             <p className={`${textSecondary} text-xs font-mono mt-1`}>
               Time before inactive containers are terminated
@@ -85,7 +120,7 @@ export default function AdminSettingsPage() {
               type="number"
               value={settings.hintPenalty}
               onChange={(e) => setSettings({...settings, hintPenalty: parseInt(e.target.value)})}
-              className={`w-full ${inputBg} border ${inputBorder} rounded px-4 py-3 ${textTertiary} font-mono focus:outline-none focus:border-[#0f8]`}
+              className={`w-full ${inputDarkBg} border ${inputBorder} rounded px-4 py-3 font-mono focus:outline-none focus:border-[#0f8]`}
             />
           </div>
         </div>
@@ -109,7 +144,7 @@ export default function AdminSettingsPage() {
               type="number"
               value={settings.pointsPerFlag}
               onChange={(e) => setSettings({...settings, pointsPerFlag: parseInt(e.target.value)})}
-              className={`w-full ${inputBg} border ${inputBorder} rounded px-4 py-3 ${textTertiary} font-mono focus:outline-none focus:border-[#0f8]`}
+              className={`w-full ${inputDarkBg} border ${inputBorder} rounded px-4 py-3 font-mono focus:outline-none focus:border-[#0f8]`}
             />
           </div>
 
@@ -121,7 +156,7 @@ export default function AdminSettingsPage() {
               type="number"
               value={settings.firstBloodBonus}
               onChange={(e) => setSettings({...settings, firstBloodBonus: parseInt(e.target.value)})}
-              className={`w-full ${inputBg} border ${inputBorder} rounded px-4 py-3 ${textTertiary} font-mono focus:outline-none focus:border-[#0f8]`}
+              className={`w-full ${inputDarkBg} border ${inputBorder} rounded px-4 py-3 font-mono focus:outline-none focus:border-[#0f8]`}
             />
             <p className={`${textSecondary} text-xs font-mono mt-1`}>
               Bonus points for first player to capture a flag
@@ -194,15 +229,159 @@ export default function AdminSettingsPage() {
         <p className={`${isDark ? 'text-red-300' : 'text-red-600'} font-mono text-sm mb-4`}>
           These actions are irreversible. Please proceed with caution.
         </p>
-        <div className="flex gap-4">
-          <button className={`${isDark ? 'bg-red-900/50 hover:bg-red-900' : 'bg-red-600 hover:bg-red-700'} text-white px-6 py-2 rounded font-mono transition-colors`}>
-            Clear All Sessions
-          </button>
-          <button className={`${isDark ? 'bg-red-900/50 hover:bg-red-900' : 'bg-red-600 hover:bg-red-700'} text-white px-6 py-2 rounded font-mono transition-colors`}>
-            Reset Database
-          </button>
+        
+        <div className="space-y-4">
+          {/* Clear All Sessions */}
+          <div className={`${inputBg} border ${borderColor} rounded-lg p-4`}>
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className={`${textTertiary} font-mono font-bold text-sm`}>Clear All Sessions</h4>
+                <p className={`${textSecondary} font-mono text-xs mt-1`}>Remove all session data permanently</p>
+              </div>
+              <button 
+                onClick={() => setShowClearSessionsInput(true)}
+                className={`${isDark ? 'bg-red-900/50 hover:bg-red-900' : 'bg-red-600 hover:bg-red-700'} text-white px-4 py-2 rounded font-mono transition-colors text-sm`}
+              >
+                Clear All Sessions
+              </button>
+            </div>
+          </div>
+
+          {/* Reset Database */}
+          <div className={`${inputBg} border ${borderColor} rounded-lg p-4`}>
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className={`${textTertiary} font-mono font-bold text-sm`}>Reset Database</h4>
+                <p className={`${textSecondary} font-mono text-xs mt-1`}>Wipe all data and reset to factory defaults</p>
+              </div>
+              <button 
+                onClick={() => setShowResetDbInput(true)}
+                className={`${isDark ? 'bg-red-900/50 hover:bg-red-900' : 'bg-red-600 hover:bg-red-700'} text-white px-4 py-2 rounded font-mono transition-colors text-sm`}
+              >
+                Reset Database
+              </button>
+            </div>
+          </div>
         </div>
       </div>
+
+      {/* Clear Sessions Modal */}
+      {showClearSessionsInput && (
+        <div className="fixed top-0 left-0 right-0 bottom-0 !m-0 !mt-0 bg-black/50 flex items-center justify-center z-50" onClick={() => {
+          setShowClearSessionsInput(false)
+          setClearSessionsConfirm('')
+        }}>
+          <div className={`${isDark ? 'bg-[#0a0a0f]' : 'bg-white'} border ${borderColor} rounded-lg p-6 max-w-md w-full mx-4 shadow-2xl`} onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start gap-3 mb-4">
+              <svg className="w-6 h-6 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <div>
+                <h3 className={`text-lg font-mono font-bold ${textTertiary} mb-1`}>Confirm Clear All Sessions</h3>
+                <p className={`${textSecondary} font-mono text-sm`}>
+                  This action cannot be undone. All session data will be permanently deleted.
+                </p>
+              </div>
+            </div>
+            
+            <div className="mb-4">
+              <p className={`${textSecondary} text-sm font-mono mb-2`}>
+                Type <span className="text-red-500 font-bold">clear-all-sessions</span> to confirm:
+              </p>
+              <input
+                type="text"
+                value={clearSessionsConfirm}
+                onChange={handleClearSessionsInput}
+                placeholder="clear-all-sessions"
+                autoFocus
+                className={`w-full ${inputDarkBg} border ${inputBorder} rounded px-3 py-2 font-mono text-sm focus:outline-none focus:border-red-500 placeholder-[#808090]`}
+              />
+            </div>
+
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => {
+                  setShowClearSessionsInput(false)
+                  setClearSessionsConfirm('')
+                }}
+                className={`${buttonSecondary} px-4 py-2 rounded font-mono text-sm`}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleClearSessions}
+                disabled={clearSessionsConfirm !== 'clear-all-sessions'}
+                className={`px-4 py-2 rounded font-mono text-sm transition-colors ${
+                  clearSessionsConfirm === 'clear-all-sessions'
+                    ? 'bg-red-600 hover:bg-red-700 text-white cursor-pointer'
+                    : 'bg-gray-400 text-gray-600 cursor-not-allowed opacity-50'
+                }`}
+              >
+                Confirm Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reset Database Modal */}
+      {showResetDbInput && (
+        <div className="fixed top-0 left-0 right-0 bottom-0 !m-0 !mt-0 bg-black/50 flex items-center justify-center z-50" onClick={() => {
+          setShowResetDbInput(false)
+          setResetDbConfirm('')
+        }}>
+          <div className={`${isDark ? 'bg-[#0a0a0f]' : 'bg-white'} border ${borderColor} rounded-lg p-6 max-w-md w-full mx-4 shadow-2xl`} onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start gap-3 mb-4">
+              <svg className="w-6 h-6 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <div>
+                <h3 className={`text-lg font-mono font-bold ${textTertiary} mb-1`}>Confirm Reset Database</h3>
+                <p className={`${textSecondary} font-mono text-sm`}>
+                  This action cannot be undone. All data will be permanently wiped and reset to factory defaults.
+                </p>
+              </div>
+            </div>
+            
+            <div className="mb-4">
+              <p className={`${textSecondary} text-sm font-mono mb-2`}>
+                Type <span className="text-red-500 font-bold">reset-database</span> to confirm:
+              </p>
+              <input
+                type="text"
+                value={resetDbConfirm}
+                onChange={handleResetDbInput}
+                placeholder="reset-database"
+                autoFocus
+                className={`w-full ${inputDarkBg} border ${inputBorder} rounded px-3 py-2 font-mono text-sm focus:outline-none focus:border-red-500 placeholder-[#808090]`}
+              />
+            </div>
+
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => {
+                  setShowResetDbInput(false)
+                  setResetDbConfirm('')
+                }}
+                className={`${buttonSecondary} px-4 py-2 rounded font-mono text-sm`}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleResetDatabase}
+                disabled={resetDbConfirm !== 'reset-database'}
+                className={`px-4 py-2 rounded font-mono text-sm transition-colors ${
+                  resetDbConfirm === 'reset-database'
+                    ? 'bg-red-600 hover:bg-red-700 text-white cursor-pointer'
+                    : 'bg-gray-400 text-gray-600 cursor-not-allowed opacity-50'
+                }`}
+              >
+                Confirm Reset
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

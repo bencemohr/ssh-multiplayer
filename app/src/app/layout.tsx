@@ -25,8 +25,24 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
+  // Inline script to prevent theme flash - runs before React hydrates
+  // Only sets data-theme attribute, CSS handles the background color
+  const themeScript = `
+    (function() {
+      try {
+        var theme = localStorage.getItem('theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
+    })();
+  `;
+
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
       <body className={`${cousine.variable} ${arimo.variable} font-sans antialiased`} suppressHydrationWarning>
         <ThemeProvider>
           <div className="min-h-screen">

@@ -47,71 +47,78 @@ const SessionRow = memo(function SessionRow({
 
 export default function AdminOverviewPage() {
   const { isDark, classes } = useTheme()
+  // TODO: Fetch session status from database. If no active session or fetch fails, set to 'INACTIVE' or 'FALSE'
   const [status, setStatus] = useState('ACTIVE')
+  const [sessionFilter, setSessionFilter] = useState<'All' | 'Not started' | 'In progress' | 'Finished'>('All')
 
   const { bgCard, borderColor, titleColor, textPrimary, textSecondary, textTertiary, inputBg, inputBorder, buttonPrimary, buttonSecondary, hoverRow } = classes
+  const inputDarkBg = isDark ? 'bg-[#0a0a0f] text-white' : `${inputBg} ${textTertiary}`
+
+  // Filter recent sessions based on status
+  const filteredSessions = useMemo(() => {
+    if (sessionFilter === 'All') return recentSessions
+    return recentSessions.filter(session => session.status === sessionFilter)
+  }, [sessionFilter])
 
   return (
     <div className="space-y-8">
       {/* Session Control */}
-      <div className={`${bgCard} border ${borderColor} rounded-lg p-6 shadow-lg`}>
-        <div className="grid grid-cols-2 gap-6">
-          <div>
-            <h3 className={`text-xl font-mono ${textTertiary} mb-6`}>Session Control</h3>
-            
-            <div className="space-y-6">
-              <div>
-                <label className={`block ${textSecondary} text-sm font-mono mb-2`}>Session ID</label>
-                <div className={`${inputBg} border ${borderColor} rounded px-4 py-3 ${textTertiary} font-mono`}>
-                  #123456
-                </div>
+      <div className="grid grid-cols-2 gap-6">
+        <div className={`${bgCard} border ${borderColor} rounded-lg p-6 shadow-lg`}>
+          <h3 className={`text-xl font-mono ${textTertiary} mb-6`}>Session Control</h3>
+          
+          <div className="space-y-6">
+            <div>
+              <label className={`block ${textSecondary} text-sm font-mono mb-2`}>Session ID</label>
+              <div className={`${inputBg} border ${borderColor} rounded px-4 py-3 ${textTertiary} font-mono`}>
+                #123456
               </div>
+            </div>
 
-              <div>
-                <label className={`block ${textSecondary} text-sm font-mono mb-2`}>Duration (minutes)</label>
-                <input
-                  type="number"
-                  defaultValue={60}
-                  className={`w-full ${inputBg} border ${inputBorder} rounded px-4 py-3 ${textTertiary} font-mono focus:outline-none focus:border-[#0f8]`}
-                />
-              </div>
+            <div>
+              <label className={`block ${textSecondary} text-sm font-mono mb-2`}>Duration (minutes)</label>
+              <input
+                type="number"
+                defaultValue={60}
+                className={`w-full ${inputDarkBg} border ${inputBorder} rounded px-4 py-3 font-mono focus:outline-none focus:border-[#0f8]`}
+              />
+            </div>
 
-              <div>
-                <span className={`${textSecondary} text-sm font-mono`}>Status: </span>
-                <span className={`${status === 'ACTIVE' ? 'text-[#0f8]' : 'text-red-500'} font-mono font-bold text-sm`}>
-                  {status}
-                </span>
-              </div>
+            <div>
+              <span className={`${textSecondary} text-sm font-mono`}>Status: </span>
+              <span className={`${status === 'ACTIVE' ? 'text-[#0f8]' : 'text-red-500'} font-mono font-bold text-sm`}>
+                {status}
+              </span>
             </div>
           </div>
+        </div>
 
-          <div>
-            <h3 className={`text-xl font-mono ${textTertiary} mb-6`}>Controls</h3>
+        <div className={`${bgCard} border ${borderColor} rounded-lg p-6 shadow-lg`}>
+          <h3 className={`text-xl font-mono ${textTertiary} mb-6`}>Controls</h3>
+          
+          <div className="space-y-4">
+            <button className={`w-full ${buttonPrimary} px-6 py-3 rounded font-mono flex items-center justify-center gap-2 transition-all active:scale-95`}>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Start Session
+            </button>
             
-            <div className="space-y-4">
-              <button className={`w-full ${buttonPrimary} px-6 py-3 rounded font-mono flex items-center justify-center gap-2 transition-shadow`}>
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                Start Session
-              </button>
-              
-              <button className={`w-full ${buttonSecondary} px-6 py-3 rounded font-mono flex items-center justify-center gap-2 transition-colors`}>
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                Pause
-              </button>
-              
-              <button className={`w-full ${buttonSecondary} px-6 py-3 rounded font-mono flex items-center justify-center gap-2 transition-colors`}>
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
-                </svg>
-                Stop Session
-              </button>
-            </div>
+            <button className={`w-full ${buttonSecondary} px-6 py-3 rounded font-mono flex items-center justify-center gap-2 transition-all active:scale-95`}>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Pause
+            </button>
+            
+            <button className={`w-full ${buttonSecondary} px-6 py-3 rounded font-mono flex items-center justify-center gap-2 transition-all active:scale-95`}>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
+              </svg>
+              Stop Session
+            </button>
           </div>
         </div>
       </div>
@@ -154,10 +161,30 @@ export default function AdminOverviewPage() {
         <h3 className={`text-xl font-mono ${textTertiary} mb-4`}>Recent Sessions</h3>
         
         <div className="flex gap-2 mb-6">
-          <button className={`${buttonPrimary} px-4 py-2 rounded text-sm font-mono shadow-[0px_0px_10px_0px_rgba(0,255,136,0.3)]`}>All</button>
-          <button className={`${buttonSecondary} px-4 py-2 rounded text-sm font-mono transition-colors`}>Not started</button>
-          <button className={`${buttonSecondary} px-4 py-2 rounded text-sm font-mono transition-colors`}>In progress</button>
-          <button className={`${buttonSecondary} px-4 py-2 rounded text-sm font-mono transition-colors`}>Finished</button>
+          <button 
+            onClick={() => setSessionFilter('All')}
+            className={`${sessionFilter === 'All' ? buttonPrimary + ' shadow-[0px_0px_10px_0px_rgba(0,255,136,0.3)]' : buttonSecondary} px-4 py-2 rounded text-sm font-mono transition-all`}
+          >
+            All
+          </button>
+          <button 
+            onClick={() => setSessionFilter('Not started')}
+            className={`${sessionFilter === 'Not started' ? buttonPrimary + ' shadow-[0px_0px_10px_0px_rgba(0,255,136,0.3)]' : buttonSecondary} px-4 py-2 rounded text-sm font-mono transition-all`}
+          >
+            Not started
+          </button>
+          <button 
+            onClick={() => setSessionFilter('In progress')}
+            className={`${sessionFilter === 'In progress' ? buttonPrimary + ' shadow-[0px_0px_10px_0px_rgba(0,255,136,0.3)]' : buttonSecondary} px-4 py-2 rounded text-sm font-mono transition-all`}
+          >
+            In progress
+          </button>
+          <button 
+            onClick={() => setSessionFilter('Finished')}
+            className={`${sessionFilter === 'Finished' ? buttonPrimary + ' shadow-[0px_0px_10px_0px_rgba(0,255,136,0.3)]' : buttonSecondary} px-4 py-2 rounded text-sm font-mono transition-all`}
+          >
+            Finished
+          </button>
         </div>
 
         <div className="overflow-x-auto">
@@ -173,8 +200,8 @@ export default function AdminOverviewPage() {
               </tr>
             </thead>
             <tbody>
-              {recentSessions.length > 0 ? (
-                recentSessions.map((session, idx) => (
+              {filteredSessions.length > 0 ? (
+                filteredSessions.map((session, idx) => (
                   <SessionRow
                     key={idx}
                     session={session}
@@ -188,7 +215,9 @@ export default function AdminOverviewPage() {
               ) : (
                 <tr>
                   <td colSpan={6} className="py-8 text-center">
-                    <p className={`${textSecondary} font-mono`}>No sessions yet</p>
+                    <p className={`${textSecondary} font-mono`}>
+                      {recentSessions.length === 0 ? 'No sessions yet' : `No ${sessionFilter.toLowerCase()} sessions`}
+                    </p>
                   </td>
                 </tr>
               )}
