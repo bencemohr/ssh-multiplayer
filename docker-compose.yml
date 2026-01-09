@@ -1,4 +1,22 @@
 services:
+  nextjs:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./app:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - WATCHPACK_POLLING=true
+    stdin_open: true
+    tty: true
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   postgres:
     image: postgres:16
     container_name: postgres
@@ -33,6 +51,7 @@ services:
     volumes:
       - pgadmin_data:/var/lib/pgadmin
       - ./insertDb/servers.json:/pgadmin4/servers.json
+
 volumes:
   postgres_data:
   pgadmin_data:
