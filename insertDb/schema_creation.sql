@@ -1,52 +1,76 @@
--- Schema creation for CTF database
-
--- \connect "ctfDatabase";
-
-CREATE TABLE team(
-    team_id int GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    team_name varchar(255) NOT NULL UNIQUE,
-    totalScore int
-);
-
-CREATE TABLE ctf_user(
-    ctf_user_id int GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    userName varchar(255) NOT NULL UNIQUE,
-    team_id int REFERENCES team(team_id)
-);
-
-CREATE TABLE onlineTerminal(
-    onlineTerminal_id int GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    onlineTerminal_link varchar(255),
-    ctf_user_id int REFERENCES ctf_user(ctf_user_id),
-    container_id int
-);
-
-CREATE TABLE level(
-    level_id int GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    level_name varchar(255) NOT NULL,
-    level_completion_points int
-);
-
-CREATE TABLE levelProgression(
-    levelProgression_id int GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    ctf_user_id int REFERENCES ctf_user(ctf_user_id),
-    level_id int REFERENCES level(level_id),
-    durationsInSeconds int,
-    isFinished boolean DEFAULT false
-);
-
-CREATE TABLE levelFlag(
-    levelFlag_id int GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    encrypted_value varchar(255) NOT NULL,
-    level_id int REFERENCES level(level_id)
-);
-
-CREATE TABLE userLevelFlag(
-    userLevelFlag_id int GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    ctf_user_id int REFERENCES ctf_user(ctf_user_id),
-    levelFlag_id int REFERENCES levelFlag(levelFlag_id)
+CREATE TABLE IF NOT EXISTS "session"(
+    "id" BIGINT NOT NULL PRIMARY KEY,
+    "sessionCode" BIGINT NOT NULL,
+    "durationSecond" BIGINT NOT NULL,
+    "maxPlayers" BIGINT NOT NULL,
+    "session_status" VARCHAR(255)
+        CHECK ("session_status" IN ('pending', 'active', 'completed')) NOT NULL,
+    "selectedLevels" TEXT NOT NULL,
+    "totalFlag_count" BIGINT NOT NULL,
+    "maxPlayersPerTeam" BIGINT NOT NULL,
+    "createdAt" TIMESTAMP(0)
+    WITH
+        TIME zone NOT NULL,
+    "destroyedAt" TIMESTAMP(0)
+    WITH
+        TIME zone
 );
 
 
+CREATE TABLE IF NOT EXISTS "playerContainer"(
+    "playerContainer_id" BIGINT NOT NULL PRIMARY KEY,
+    "containerCode" BIGINT NOT NULL UNIQUE,
+    "container_url" TEXT NOT NULL,
+    "userConnected_count" BIGINT,
+    "isFinishedTheGame" BOOLEAN DEFAULT FALSE,
+    "hintUsed" BIGINT,
+    "session_id" BIGINT NOT NULL REFERENCES "session"("id"),
+    "canNewUserLogin" BOOLEAN DEFAULT TRUE,
+    "totalScore" BIGINT NOT NULL,
+    "containerStatus" VARCHAR(255) CHECK (
+        "containerStatus" IN (
+        'creating',      
+        'started',      
+        'healthy',       
+        'unhealthy',     
+        'refused',      
+        'stopped',       
+        'destroyed'
+        )
+    ) NOT NULL
+);
 
+CREATE TABLE IF NOT EXISTS "user"(
+    "user_id" BIGINT NOT NULL PRIMARY KEY,
+    "nickName" TEXT NOT NULL UNIQUE,
+    "playerContainer_id" BIGINT REFERENCES "playerContainer"("playerContainer_id")
+);
 
+CREATE TABLE IF NOT EXISTS "container_logs"(
+    "container_logs_id" BIGINT NOT NULL PRIMARY KEY,
+    "event_type" VARCHAR(255) CHECK (
+        "event_type" IN (
+            'foundFlag_accepted', 
+            'foundFlag_declined', 
+            'hint_requested', 
+            'level_completed'
+        )
+    ) NOT NULL,
+    "timestamp" TIMESTAMP(0) WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "playerContainer_id" BIGINT NOT NULL REFERENCES "playerContainer"("playerContainer_id"),
+    "metaData" JSONB NOT NULL,
+    "point" BIGINT
+);
+
+CREATE TABLE IF NOT EXISTS "admin"(
+    "admin_id" BIGINT NOT NULL PRIMARY KEY,
+    "hashedPassword" TEXT NOT NULL,
+    "nickName" TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS "level"(
+    "level_id" BIGINT NOT NULL PRIMARY KEY,
+    "session_id" BIGINT NOT NULL REFERENCES "session"("id"),
+    "service_name" TEXT NOT NULL UNIQUE,
+    "level_completion_point" BIGINT NOT NULL
+);
