@@ -3,6 +3,7 @@ const router = express.Router();
 const controller = require('../controllers/controller');
 const sessionController = require('../controllers/sessionController');
 const playerController = require('../controllers/playerController');
+const teamController = require('../controllers/teamController');
 
 // GET /api
 // Health check
@@ -72,5 +73,18 @@ router.get('/sessions/:sessionId/players', playerController.getSessionPlayers);
 
 // DELETE /api/players/:playerId - remove player from session
 router.delete('/players/:playerId', playerController.removePlayer);
+
+// ========================================
+// Team Management Endpoints
+// ========================================
+
+// POST /api/sessions/:sessionId/assign-teams - assign players to teams
+router.post('/sessions/:sessionId/assign-teams', teamController.assignTeams);
+
+// GET /api/sessions/:sessionId/teams - get team assignments for session
+router.get('/sessions/:sessionId/teams', teamController.getTeams);
+
+// GET /api/teams/:teamId - get team details
+router.get('/teams/:teamId', teamController.getTeam);
 
 module.exports = router;

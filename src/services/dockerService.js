@@ -1,8 +1,34 @@
 const docker = require('../db/docker');
+const os = require('os');
+require('dotenv').config();
 
 // Track port mappings: { containerId: hostPort }
 const containerPorts = {};
 let nextPort = 4001;
+
+// Auto-detect local IP address (non-loopback IPv4)
+function getLocalIP() {
+  const interfaces = os.networkInterfaces();
+  for (const name of Object.keys(interfaces)) {
+    for (const iface of interfaces[name]) {
+      // Skip loopback and non-IPv4 addresses
+      if (iface.family === 'IPv4' && !iface.internal) {
+        return iface.address;
+      }
+    }
+  }
+  return 'localhost';
+}
+
+// Get the server's accessible hostname/IP
+// Priority: LAN_IP env var (from docker-compose) > auto-detect > localhost
+let SERVER_HOST;
+if (process.env.LAN_IP && process.env.LAN_IP !== 'auto') {
+  SERVER_HOST = process.env.LAN_IP;
+} else {
+  // Auto-detect local IP
+  SERVER_HOST = getLocalIP();
+}
 
 // Get next available port
 function getNextPort() {
@@ -72,7 +98,7 @@ async function createAttacker(name) {
       image: 'mits-attacker:latest',
       port: hostPort,
       hostname: hostname,
-      terminal_url: hostname ? `http://localhost:${hostPort}/${hostname}/` : `http://localhost:${hostPort}/`,
+      terminal_url: hostname ? `http://${SERVER_HOST}:${hostPort}/${hostname}/` : `http://${SERVER_HOST}:${hostPort}/`,
       status: 'stopped'
     };
   } catch (error) {

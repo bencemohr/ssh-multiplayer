@@ -35,6 +35,7 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
       NODE_ENV: production
       PORT: 3001
+      LAN_IP: ${LAN_IP:-auto}
     depends_on:
       postgres:
         condition: service_healthy

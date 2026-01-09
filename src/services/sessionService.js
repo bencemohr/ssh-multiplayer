@@ -16,14 +16,16 @@ async function createSession(data) {
     max_players,
     time_limit,
     selected_levels,
-    admin_id
+    admin_id,
+    mode,
+    team_size
   } = data;
 
   const sessionCode = generateSessionCode();
   const query = `
     INSERT INTO sessions 
-    (session_code, admin_id, max_players, time_limit, selected_levels, status, created_at)
-    VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)
+    (session_code, admin_id, max_players, time_limit, selected_levels, mode, team_size, status, created_at)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP)
     RETURNING *;
   `;
 
@@ -34,6 +36,8 @@ async function createSession(data) {
       max_players,
       time_limit,
       JSON.stringify(selected_levels),
+      mode || 'single',
+      team_size || 1,
       'lobby'
     ]);
     return result.rows[0];

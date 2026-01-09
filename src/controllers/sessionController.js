@@ -1,4 +1,5 @@
 const sessionService = require('../services/sessionService');
+const teamService = require('../services/teamService');
 
 /**
  * POST /api/sessions
@@ -6,7 +7,7 @@ const sessionService = require('../services/sessionService');
  */
 async function createSession(req, res) {
   try {
-    const { max_players, time_limit, selected_levels, admin_id } = req.body;
+    const { max_players, time_limit, selected_levels, admin_id, mode, team_size } = req.body;
 
     if (!max_players || !time_limit || !selected_levels || !admin_id) {
       return res.status(400).json({
@@ -14,11 +15,16 @@ async function createSession(req, res) {
       });
     }
 
+    const sessionMode = mode || 'single';
+    const finalTeamSize = team_size || (sessionMode === 'single' ? 1 : Math.ceil(max_players / 2));
+
     const session = await sessionService.createSession({
       max_players,
       time_limit,
       selected_levels,
-      admin_id
+      admin_id,
+      mode: sessionMode,
+      team_size: finalTeamSize
     });
 
     res.status(201).json({
@@ -87,6 +93,39 @@ async function updateSessionStatus(req, res) {
     }
 
     const updatedSession = await sessionService.updateSessionStatus(sessionId, status);
+
+    // If transitioning to "active", assign teams and start containers
+    if (status === 'active') {
+      try {
+        // Assign players to teams
+        const teams = await teamService.assignTeams(sessionId);
+        
+        // Start team containers
+        await teamService.startSessionTeamContainers(sessionId);
+
+        return res.json({
+          success: true,
+          message: `Session status updated to ${status}`,
+          session: updatedSession,
+          teams_count: teams.length,
+          teams
+        });
+      } catch (teamError) {
+        console.error('Error setting up teams:', teamError);
+        return res.status(400).json({
+          error: `Status updated but team setup failed: ${teamError.message}`
+        });
+      }
+    }
+
+    // If transitioning to "finished", stop containers
+    if (status === 'finished') {
+      try {
+        await teamService.stopSessionTeamContainers(sessionId);
+      } catch (stopError) {
+        console.error('Error stopping containers:', stopError);
+      }
+    }
 
     res.json({
       success: true,
