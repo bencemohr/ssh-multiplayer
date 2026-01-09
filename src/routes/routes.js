@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const controller = require('../controllers/controller');
+const sessionController = require('../controllers/sessionController');
+const playerController = require('../controllers/playerController');
 
 // GET /api
 // Health check
@@ -38,5 +40,37 @@ router.post('/containers/victim-stop', controller.victimStop);
 
 // POST /api/containers/victim-start - start all victim containers
 router.post('/containers/victim-start', controller.victimStart);
+
+// ========================================
+// Session Management Endpoints
+// ========================================
+
+// POST /api/sessions - create a new session
+router.post('/sessions', sessionController.createSession);
+
+// GET /api/sessions - get all sessions (with optional admin_id filter)
+router.get('/sessions', sessionController.getAllSessions);
+
+// GET /api/sessions/:sessionCode - get session by code
+router.get('/sessions/:sessionCode', sessionController.getSession);
+
+// PATCH /api/sessions/:sessionId/status - update session status
+router.patch('/sessions/:sessionId/status', sessionController.updateSessionStatus);
+
+// DELETE /api/sessions/:sessionId - delete a session
+router.delete('/sessions/:sessionId', sessionController.deleteSession);
+
+// ========================================
+// Player Management Endpoints
+// ========================================
+
+// POST /api/sessions/:sessionCode/join - join player to session
+router.post('/sessions/:sessionCode/join', playerController.joinSession);
+
+// GET /api/sessions/:sessionId/players - get all players in session
+router.get('/sessions/:sessionId/players', playerController.getSessionPlayers);
+
+// DELETE /api/players/:playerId - remove player from session
+router.delete('/players/:playerId', playerController.removePlayer);
 
 module.exports = router;
