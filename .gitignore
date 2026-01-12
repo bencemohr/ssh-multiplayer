@@ -1,7 +1,6 @@
 # Dependencies
 node_modules/
 app/node_modules/
-app/
 
 # Next.js build output
 .next/

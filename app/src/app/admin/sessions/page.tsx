@@ -1,7 +1,7 @@
 'use client'
 
 import { useTheme } from '@/contexts/ThemeContext'
-import { useState, memo, useMemo } from 'react'
+import { useState, memo, useMemo, useEffect } from 'react'
 
 // Data will be fetched from database
 interface SessionData {
@@ -15,11 +15,43 @@ interface SessionData {
   winner: string
 }
 
-const sessionsData: SessionData[] = []
-
 export default function AdminSessionsPage() {
   const { isDark, classes } = useTheme()
   const [filter, setFilter] = useState('All')
+  const [sessionsData, setSessionsData] = useState<SessionData[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    // Poll for sessions or fetch once? Ideally polling or SWR, but fetch once for now
+    const fetchSessions = async () => {
+      try {
+        const res = await fetch('http://localhost:3001/api/sessions')
+        const data = await res.json()
+        if (data.success && Array.isArray(data.sessions)) {
+          const mapped = data.sessions.map((s: any) => ({
+            id: s.sessionCode ? `#${s.sessionCode}` : s.id, // Use friendly code if available
+            status: s.session_status === 'pending' ? 'Not Started' : s.session_status === 'active' ? 'In Progress' : 'Finished',
+            startTime: new Date(s.createdAt).toLocaleString(),
+            endTime: s.destroyedAt ? new Date(s.destroyedAt).toLocaleString() : '-',
+            duration: Math.round((s.durationSecond || 3600) / 60),
+            participants: 0, // Placeholder
+            flags: s.totalFlag_count || 10,
+            winner: '-'
+          }))
+          setSessionsData(mapped)
+        }
+      } catch (err) {
+        console.error('Failed to fetch sessions', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchSessions()
+    // Optional: Poll every 10s
+    const interval = setInterval(fetchSessions, 10000)
+    return () => clearInterval(interval)
+  }, [])
 
   const { bgCard, borderColor, titleColor, textPrimary, textSecondary, textTertiary, buttonPrimary, buttonSecondary } = classes
 
@@ -41,9 +73,8 @@ export default function AdminSessionsPage() {
           <button
             key={filterOption}
             onClick={() => setFilter(filterOption)}
-            className={`${
-              filter === filterOption ? buttonPrimary : buttonSecondary
-            } px-4 py-2 rounded text-sm font-mono transition-all`}
+            className={`${filter === filterOption ? buttonPrimary : buttonSecondary
+              } px-4 py-2 rounded text-sm font-mono transition-all`}
           >
             {filterOption}
           </button>
@@ -157,7 +188,7 @@ export default function AdminSessionsPage() {
           </div>
           <div>
             <p className={`text-3xl font-mono font-bold ${textSecondary}`}>
-              {sessionsData.filter(s => s.status === 'Finished').length > 0 
+              {sessionsData.filter(s => s.status === 'Finished').length > 0
                 ? Math.round(sessionsData.filter(s => s.status === 'Finished').reduce((acc, s) => acc + s.duration, 0) / sessionsData.filter(s => s.status === 'Finished').length)
                 : 0}
             </p>

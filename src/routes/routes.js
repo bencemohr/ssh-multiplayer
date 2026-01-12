@@ -1,12 +1,36 @@
 const express = require('express');
 const router = express.Router();
 const controller = require('../controllers/controller');
+const authController = require('../controllers/authController');
+
+// --- Auth Routes ---
+router.post('/auth/login', authController.login);
+
+// --- Session Routes ---
 
 // GET /api
 // Health check
 router.get('/', (req, res) => {
   res.json({ message: 'Hello World! API is running' });
 });
+
+// POST /api/session
+// Create a new game session
+router.post('/session', controller.createSession);
+
+// GET /api/sessions
+// Get all sessions
+router.get('/sessions', controller.getAllSessions);
+
+// PUT /api/sessions/:id/status
+// Update session status
+router.put('/sessions/:id/status', controller.updateSessionStatus);
+
+// GET /api/sessions/:id/leaderboard
+router.get('/sessions/:id/leaderboard', controller.getLeaderboard);
+
+// GET /api/sessions/:id/events
+router.get('/sessions/:id/events', controller.getEvents);
 
 // POST /api/createattacker
 // Create a new attacker container

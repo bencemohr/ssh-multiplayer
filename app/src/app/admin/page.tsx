@@ -1,21 +1,29 @@
 'use client'
 
 import { useTheme } from '@/contexts/ThemeContext'
-import { useState, memo, useMemo } from 'react'
+import { useState, memo, useMemo, useEffect } from 'react'
 
 // Data will be fetched from database
-const recentSessions: { id: string; status: string; start: string; end: string; participants: number }[] = []
+interface SessionData {
+  id: string
+  dbId: string
+  status: string
+  start: string
+  end: string
+  participants: number
+  durationSeconds: number
+}
 
 // Memoized session row component
-const SessionRow = memo(function SessionRow({ 
-  session, 
-  isDark, 
-  borderColor, 
-  hoverRow, 
-  textTertiary, 
-  titleColor 
-}: { 
-  session: typeof recentSessions[0]
+const SessionRow = memo(function SessionRow({
+  session,
+  isDark,
+  borderColor,
+  hoverRow,
+  textTertiary,
+  titleColor
+}: {
+  session: SessionData
   isDark: boolean
   borderColor: string
   hoverRow: string
@@ -47,31 +55,121 @@ const SessionRow = memo(function SessionRow({
 
 export default function AdminOverviewPage() {
   const { isDark, classes } = useTheme()
-  // TODO: Fetch session status from database. If no active session or fetch fails, set to 'INACTIVE' or 'FALSE'
-  const [status, setStatus] = useState('ACTIVE')
+  const [sessions, setSessions] = useState<SessionData[]>([])
+  const [activeSession, setActiveSession] = useState<SessionData | null>(null)
+  const [newSessionDuration, setNewSessionDuration] = useState(60)
+  const [loading, setLoading] = useState(false)
+
   const [sessionFilter, setSessionFilter] = useState<'All' | 'Not started' | 'In progress' | 'Finished'>('All')
 
-  const { bgCard, borderColor, titleColor, textPrimary, textSecondary, textTertiary, inputBg, inputBorder, buttonPrimary, buttonSecondary, hoverRow } = classes
+  const { bgCard, borderColor, titleColor, textSecondary, textTertiary, inputBg, inputBorder, buttonPrimary, buttonSecondary, hoverRow } = classes
   const inputDarkBg = isDark ? 'bg-[#0a0a0f] text-white' : `${inputBg} ${textTertiary}`
+
+  const fetchSessions = async () => {
+    try {
+      const res = await fetch('http://localhost:3001/api/sessions')
+      const data = await res.json()
+      if (data.success && Array.isArray(data.sessions)) {
+        const mapped = data.sessions.map((s: any) => ({
+          id: s.sessionCode ? `#${s.sessionCode}` : s.id,
+          dbId: s.id,
+          status: s.session_status === 'pending' ? 'Not started' : s.session_status === 'active' ? 'In progress' : 'Finished',
+          start: new Date(s.createdAt).toLocaleString(),
+          end: s.destroyedAt ? new Date(s.destroyedAt).toLocaleString() : '-',
+          participants: 0,
+          durationSeconds: parseInt(s.durationSecond || 3600)
+        }))
+        setSessions(mapped)
+
+        // Find active or pending session
+        const active = mapped.find((s: any) => s.status === 'In progress' || s.status === 'Not started')
+        setActiveSession(active || null)
+      }
+    } catch (err) {
+      console.error('Failed to fetch sessions', err)
+    }
+  }
+
+  useEffect(() => {
+    fetchSessions()
+    const interval = setInterval(fetchSessions, 5000)
+    return () => clearInterval(interval)
+  }, [])
+
+  if (loading) {
+    // Optional: We can show a loading spinner here for data fetching if we want
+    // but 'authLoading' was removed as layout handles it.
+  }
+
+  const handleCreateSession = async () => {
+    if (activeSession) return alert('A session is already active/pending.')
+    setLoading(true)
+    try {
+      await fetch('http://localhost:3001/api/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ durationSecond: newSessionDuration * 60 })
+      })
+      await fetchSessions()
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleUpdateStatus = async (status: string) => {
+    if (!activeSession) return
+    setLoading(true)
+    try {
+      // Map API status: pending, active, completed
+      let apiStatus = 'pending'
+      if (status === 'In progress') apiStatus = 'active'
+      if (status === 'Finished') apiStatus = 'completed'
+
+      await fetch(`http://localhost:3001/api/sessions/${activeSession.dbId}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: apiStatus })
+      })
+      await fetchSessions()
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   // Filter recent sessions based on status
   const filteredSessions = useMemo(() => {
-    if (sessionFilter === 'All') return recentSessions
-    return recentSessions.filter(session => session.status === sessionFilter)
-  }, [sessionFilter])
+    if (sessionFilter === 'All') return sessions
+    return sessions.filter(session => session.status === sessionFilter)
+  }, [sessions, sessionFilter])
 
   return (
     <div className="space-y-8">
       {/* Session Control */}
       <div className="grid grid-cols-2 gap-6">
         <div className={`${bgCard} border ${borderColor} rounded-lg p-6 shadow-lg`}>
-          <h3 className={`text-xl font-mono ${textTertiary} mb-6`}>Session Control</h3>
-          
+          <div className="flex justify-between items-center mb-6">
+            <h3 className={`text-xl font-mono ${textTertiary}`}>Session Control</h3>
+            <button
+              onClick={() => {
+                localStorage.removeItem('admin_token');
+                localStorage.removeItem('admin_username');
+                window.location.href = '/login';
+              }}
+              className={`text-red-500 text-sm font-mono hover:underline`}
+            >
+              Logout
+            </button>
+          </div>
+
           <div className="space-y-6">
             <div>
               <label className={`block ${textSecondary} text-sm font-mono mb-2`}>Session ID</label>
               <div className={`${inputBg} border ${borderColor} rounded px-4 py-3 ${textTertiary} font-mono`}>
-                #123456
+                {activeSession ? activeSession.id : 'No active session'}
               </div>
             </div>
 
@@ -79,15 +177,17 @@ export default function AdminOverviewPage() {
               <label className={`block ${textSecondary} text-sm font-mono mb-2`}>Duration (minutes)</label>
               <input
                 type="number"
-                defaultValue={60}
-                className={`w-full ${inputDarkBg} border ${inputBorder} rounded px-4 py-3 font-mono focus:outline-none focus:border-[#0f8]`}
+                value={activeSession ? Math.round(activeSession.durationSeconds / 60) : newSessionDuration}
+                onChange={(e) => !activeSession && setNewSessionDuration(parseInt(e.target.value) || 60)}
+                disabled={!!activeSession}
+                className={`w-full ${inputDarkBg} border ${inputBorder} rounded px-4 py-3 font-mono focus:outline-none focus:border-[#0f8] disabled:opacity-50`}
               />
             </div>
 
             <div>
               <span className={`${textSecondary} text-sm font-mono`}>Status: </span>
-              <span className={`${status === 'ACTIVE' ? 'text-[#0f8]' : 'text-red-500'} font-mono font-bold text-sm`}>
-                {status}
+              <span className={`${activeSession ? (activeSession.status === 'In progress' ? 'text-[#0f8]' : 'text-yellow-500') : 'text-gray-500'} font-mono font-bold text-sm`}>
+                {activeSession ? activeSession.status.toUpperCase() : 'INACTIVE'}
               </span>
             </div>
           </div>
@@ -95,30 +195,61 @@ export default function AdminOverviewPage() {
 
         <div className={`${bgCard} border ${borderColor} rounded-lg p-6 shadow-lg`}>
           <h3 className={`text-xl font-mono ${textTertiary} mb-6`}>Controls</h3>
-          
+
           <div className="space-y-4">
-            <button className={`w-full ${buttonPrimary} px-6 py-3 rounded font-mono flex items-center justify-center gap-2 transition-all active:scale-95`}>
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              Start Session
-            </button>
-            
-            <button className={`w-full ${buttonSecondary} px-6 py-3 rounded font-mono flex items-center justify-center gap-2 transition-all active:scale-95`}>
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              Pause
-            </button>
-            
-            <button className={`w-full ${buttonSecondary} px-6 py-3 rounded font-mono flex items-center justify-center gap-2 transition-all active:scale-95`}>
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
-              </svg>
-              Stop Session
-            </button>
+            {!activeSession ? (
+              <button
+                onClick={handleCreateSession}
+                disabled={loading}
+                className={`w-full ${buttonPrimary} px-6 py-3 rounded font-mono flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50`}>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Create Session
+              </button>
+            ) : (
+              <>
+                {activeSession.status === 'Not started' && (
+                  <button
+                    onClick={() => handleUpdateStatus('In progress')}
+                    disabled={loading}
+                    className={`w-full ${buttonPrimary} px-6 py-3 rounded font-mono flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50`}>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Start Session
+                  </button>
+                )}
+
+                {/* Pause Implementation: Schema doesn't support 'paused' yet, so omitting or mapping to Pending? 
+                    User asked to pause. Let's assume for now we can switch back to 'pending' (Not started) for pause.
+                */}
+                {activeSession.status === 'In progress' && (
+                  <button
+                    onClick={() => handleUpdateStatus('Not started')}
+                    disabled={loading}
+                    className={`w-full ${buttonSecondary} px-6 py-3 rounded font-mono flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50`}>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Pause (Set to Pending)
+                  </button>
+                )}
+
+                <button
+                  onClick={() => handleUpdateStatus('Finished')}
+                  disabled={loading}
+                  className={`w-full ${buttonSecondary} px-6 py-3 rounded font-mono flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50`}>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
+                  </svg>
+                  Stop / Finish Session
+                </button>
+              </>
+            )}
+
           </div>
         </div>
       </div>
@@ -130,7 +261,7 @@ export default function AdminOverviewPage() {
             <svg className={`w-8 h-8 ${titleColor}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
             </svg>
-            <span className={`text-3xl font-mono font-bold ${titleColor}`}>0</span>
+            <span className={`text-3xl font-mono font-bold ${titleColor}`}>{activeSession ? activeSession.participants : 0}</span>
           </div>
           <p className={`${textSecondary} text-sm`}>Active Players</p>
         </div>
@@ -159,27 +290,27 @@ export default function AdminOverviewPage() {
       {/* Recent Sessions */}
       <div className={`${bgCard} border ${borderColor} rounded-lg p-6 shadow-lg`}>
         <h3 className={`text-xl font-mono ${textTertiary} mb-4`}>Recent Sessions</h3>
-        
+
         <div className="flex gap-2 mb-6">
-          <button 
+          <button
             onClick={() => setSessionFilter('All')}
             className={`${sessionFilter === 'All' ? buttonPrimary + ' shadow-[0px_0px_10px_0px_rgba(0,255,136,0.3)]' : buttonSecondary} px-4 py-2 rounded text-sm font-mono transition-all`}
           >
             All
           </button>
-          <button 
+          <button
             onClick={() => setSessionFilter('Not started')}
             className={`${sessionFilter === 'Not started' ? buttonPrimary + ' shadow-[0px_0px_10px_0px_rgba(0,255,136,0.3)]' : buttonSecondary} px-4 py-2 rounded text-sm font-mono transition-all`}
           >
             Not started
           </button>
-          <button 
+          <button
             onClick={() => setSessionFilter('In progress')}
             className={`${sessionFilter === 'In progress' ? buttonPrimary + ' shadow-[0px_0px_10px_0px_rgba(0,255,136,0.3)]' : buttonSecondary} px-4 py-2 rounded text-sm font-mono transition-all`}
           >
             In progress
           </button>
-          <button 
+          <button
             onClick={() => setSessionFilter('Finished')}
             className={`${sessionFilter === 'Finished' ? buttonPrimary + ' shadow-[0px_0px_10px_0px_rgba(0,255,136,0.3)]' : buttonSecondary} px-4 py-2 rounded text-sm font-mono transition-all`}
           >
@@ -216,7 +347,7 @@ export default function AdminOverviewPage() {
                 <tr>
                   <td colSpan={6} className="py-8 text-center">
                     <p className={`${textSecondary} font-mono`}>
-                      {recentSessions.length === 0 ? 'No sessions yet' : `No ${sessionFilter.toLowerCase()} sessions`}
+                      {sessions.length === 0 ? 'No sessions yet' : `No ${sessionFilter.toLowerCase()} sessions`}
                     </p>
                   </td>
                 </tr>
