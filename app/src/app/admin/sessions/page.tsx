@@ -3,9 +3,12 @@
 import { useTheme } from '@/contexts/ThemeContext'
 import { useState, memo, useMemo, useEffect } from 'react'
 
+import { useRouter } from 'next/navigation'
+
 // Data will be fetched from database
 interface SessionData {
   id: string
+  dbId: string
   status: string
   startTime: string
   endTime: string
@@ -17,6 +20,7 @@ interface SessionData {
 
 export default function AdminSessionsPage() {
   const { isDark, classes } = useTheme()
+  const router = useRouter()
   const [filter, setFilter] = useState('All')
   const [sessionsData, setSessionsData] = useState<SessionData[]>([])
   const [loading, setLoading] = useState(true)
@@ -30,6 +34,7 @@ export default function AdminSessionsPage() {
         if (data.success && Array.isArray(data.sessions)) {
           const mapped = data.sessions.map((s: any) => ({
             id: s.sessionCode ? `#${s.sessionCode}` : s.id, // Use friendly code if available
+            dbId: s.id, // Store real DB ID for navigation
             status: s.session_status === 'pending' ? 'Not Started' : s.session_status === 'active' ? 'In Progress' : 'Finished',
             startTime: new Date(s.createdAt).toLocaleString(),
             endTime: s.destroyedAt ? new Date(s.destroyedAt).toLocaleString() : '-',
@@ -154,7 +159,10 @@ export default function AdminSessionsPage() {
 
               {/* Actions */}
               <div className="mt-4 pt-4 border-t ${borderColor}">
-                <button className={`w-full ${titleColor} hover:underline text-sm font-mono flex items-center justify-center gap-2`}>
+                <button
+                  onClick={() => router.push(`/admin/sessions/${session.dbId}`)}
+                  className={`w-full ${titleColor} hover:underline text-sm font-mono flex items-center justify-center gap-2`}
+                >
                   View Details
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />

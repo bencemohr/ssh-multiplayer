@@ -3,6 +3,7 @@
 import { useTheme } from '@/contexts/ThemeContext'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 
 export default function LoginPage() {
     const { isDark, classes } = useTheme()
@@ -90,6 +91,12 @@ export default function LoginPage() {
                     >
                         {loading ? 'Authenticating...' : 'Authenticate'}
                     </button>
+
+                    <div className="text-center mt-4">
+                        <Link href="/" className={`${textSecondary} text-sm hover:text-[#0f8] font-mono transition-colors`}>
+                            ← Back to Home
+                        </Link>
+                    </div>
                 </form>
             </div>
         </div>

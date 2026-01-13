@@ -5,17 +5,52 @@ const dbService = require('../services/dbService');
 // Create a new game session
 async function createSession(req, res) {
   try {
+    const { durationSecond, maxPlayers, teamsCount, maxPlayersPerTeam } = req.body;
+
+    // Stop any in-progress sessions first
+    await dbService.terminateActiveSessions();
+
+    // Create the session
     const session = await dbService.createSession(req.body);
+
+    // Determine if this is FFA (Free For All) or Team mode
+    // FFA: maxPlayersPerTeam = 1 (each player gets their own container)
+    // Team: maxPlayersPerTeam > 1 (players share containers/teams)
+    const isFFA = (maxPlayersPerTeam || 1) === 1;
+
+    let teamsCreated = 0;
+
+    if (!isFFA && teamsCount > 0) {
+      // Team mode: Pre-create the team containers
+      const containerPromises = [];
+      const baseApiUrl = process.env.CONTAINER_API_URL || 'http://localhost:3000';
+
+      for (let i = 0; i < teamsCount; i++) {
+        containerPromises.push(dbService.createPlayerContainer({
+          container_url: `${baseApiUrl}/team-${i + 1}`,
+          session_id: session.id,
+          status: 'started'
+        }));
+      }
+
+      await Promise.all(containerPromises);
+      teamsCreated = teamsCount;
+    }
+    // For FFA mode: No pre-creation needed. Containers are created on-demand when players join.
+
     res.status(201).json({
       success: true,
-      message: 'Session created',
-      session
+      message: isFFA ? 'Session created (FFA mode - containers created on join)' : 'Session created with teams',
+      session,
+      mode: isFFA ? 'FFA' : 'Teams',
+      teamsCreated
     });
   } catch (error) {
     console.error('Error creating session:', error);
     res.status(500).json({ error: error.message });
   }
 }
+
 
 // GET /api/sessions
 // Get all sessions
@@ -300,6 +335,146 @@ async function getEvents(req, res) {
   }
 }
 
+// DELETE /api/sessions
+// Delete all sessions and history
+async function deleteAllSessions(req, res) {
+  try {
+    await dbService.deleteAllSessions();
+    res.json({
+      success: true,
+      message: 'All sessions history cleared'
+    });
+  } catch (error) {
+    console.error('Error deleting all sessions:', error);
+    res.status(500).json({ error: error.message });
+  }
+}
+
+// POST /api/join
+// Player joins a session
+async function joinSession(req, res) {
+  try {
+    const { sessionCode, displayName } = req.body;
+
+    // Validate input
+    if (!sessionCode || !displayName) {
+      return res.status(400).json({ error: 'Session code and display name are required' });
+    }
+
+    // Trim and validate display name
+    const trimmedName = displayName.trim();
+    if (trimmedName.length < 2 || trimmedName.length > 20) {
+      return res.status(400).json({ error: 'Display name must be 2-20 characters' });
+    }
+
+    // Find the session by code
+    const session = await dbService.getSessionByCode(parseInt(sessionCode, 10));
+    if (!session) {
+      return res.status(404).json({ error: 'Session not found or not active' });
+    }
+
+    // Handle potential column name casing from PostgreSQL
+    // PostgreSQL BIGINT returns as string, so parse to int
+    const maxPlayersPerTeam = parseInt(session.maxPlayersPerTeam || session.maxplayersperteam || 1, 10);
+    const maxPlayers = parseInt(session.maxPlayers || session.maxplayers || 10, 10);
+
+    // Determine if this is FFA mode (each player gets their own container)
+    const isFFA = maxPlayersPerTeam === 1;
+
+    console.log('Join attempt:', { sessionId: session.id, maxPlayersPerTeam, maxPlayers, isFFA });
+
+    // Try to find an available container
+    let container = await dbService.getAvailableContainer(session.id, maxPlayersPerTeam);
+
+    console.log('Available container:', container ? container.playerContainer_id : 'none');
+
+    // If no container available
+    if (!container) {
+      if (isFFA) {
+        // FFA mode: Check if we can create a new container (haven't reached maxPlayers)
+        const currentPlayerCount = await dbService.getSessionPlayerCount(session.id);
+
+        console.log('FFA mode - current players:', currentPlayerCount, 'max:', maxPlayers);
+
+        if (currentPlayerCount >= maxPlayers) {
+          return res.status(400).json({ error: 'Session is full - maximum players reached' });
+        }
+
+        // Create a new container on-the-fly for this player
+        const baseApiUrl = process.env.CONTAINER_API_URL || 'http://localhost:3000';
+        container = await dbService.createPlayerContainer({
+          container_url: `${baseApiUrl}/player-${currentPlayerCount + 1}`,
+          session_id: session.id,
+          status: 'started'
+        });
+
+        console.log('Created new container:', container.playerContainer_id);
+      } else {
+        // Team mode: No available teams
+        return res.status(400).json({ error: 'Session is full - no available teams' });
+      }
+    }
+
+    // Create the user
+    const user = await dbService.createUser({
+      nickName: trimmedName,
+      playerContainer_id: container.playerContainer_id
+    });
+
+    // Increment the container user count
+    await dbService.incrementContainerUserCount(container.playerContainer_id);
+
+    res.status(201).json({
+      success: true,
+      message: 'Successfully joined session',
+      user: {
+        id: user.user_id,
+        displayName: user.nickName
+      },
+      team: {
+        id: container.playerContainer_id,
+        code: container.containerCode,
+        url: container.container_url
+      },
+      session: {
+        id: session.id,
+        code: session.sessionCode
+      }
+    });
+  } catch (error) {
+    console.error('Error joining session:', error);
+    // Handle duplicate name errors (both old and new messages)
+    if (error.message.includes('Display name already taken')) {
+      return res.status(400).json({ error: error.message });
+    }
+    res.status(500).json({ error: error.message });
+  }
+}
+
+
+// GET /api/sessions/active
+// Get active sessions for players to join
+async function getActiveSessions(req, res) {
+  try {
+    const sessions = await dbService.getActiveSessionsForJoin();
+    res.json({
+      success: true,
+      sessions: sessions.map(s => ({
+        id: s.id,
+        code: s.sessionCode,
+        status: s.session_status,
+        maxPlayers: s.maxPlayers,
+        currentPlayers: parseInt(s.current_players, 10) || 0,
+        teamCount: parseInt(s.team_count, 10) || 0,
+        createdAt: s.createdAt
+      }))
+    });
+  } catch (error) {
+    console.error('Error getting active sessions:', error);
+    res.status(500).json({ error: error.message });
+  }
+}
+
 module.exports = {
   createSession,
   getAllSessions,
@@ -314,5 +489,8 @@ module.exports = {
   victimStop,
   victimStart,
   getLeaderboard,
-  getEvents
+  getEvents,
+  deleteAllSessions,
+  joinSession,
+  getActiveSessions
 };

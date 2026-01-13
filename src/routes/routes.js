@@ -22,6 +22,14 @@ router.post('/session', controller.createSession);
 // Get all sessions
 router.get('/sessions', controller.getAllSessions);
 
+// GET /api/sessions/active
+// Get active sessions for players to join
+router.get('/sessions/active', controller.getActiveSessions);
+
+// DELETE /api/sessions
+// Clear all session history
+router.delete('/sessions', controller.deleteAllSessions);
+
 // PUT /api/sessions/:id/status
 // Update session status
 router.put('/sessions/:id/status', controller.updateSessionStatus);
@@ -31,6 +39,10 @@ router.get('/sessions/:id/leaderboard', controller.getLeaderboard);
 
 // GET /api/sessions/:id/events
 router.get('/sessions/:id/events', controller.getEvents);
+
+// POST /api/join
+// Player joins a session
+router.post('/join', controller.joinSession);
 
 // POST /api/createattacker
 // Create a new attacker container

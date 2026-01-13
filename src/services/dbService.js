@@ -24,7 +24,9 @@ async function query(text, params) {
     const start = Date.now();
     const res = await pool.query(text, params);
     const duration = Date.now() - start;
-    console.log('executed query', { text, duration, rows: res.rowCount });
+    if (process.env.NODE_ENV === 'development') {
+        console.log('executed query', { text, duration, rows: res.rowCount });
+    }
     return res;
 }
 
@@ -85,6 +87,21 @@ async function getPendingSession() {
     return res.rows[0];
 }
 
+async function terminateActiveSessions() {
+    // Set all pending or active sessions to 'completed'
+    const queryText = `
+      UPDATE "session" 
+      SET "session_status" = 'completed' 
+      WHERE "session_status" IN ('pending', 'active')
+    `;
+    try {
+        await query(queryText);
+    } catch (err) {
+        console.error('Error terminating active sessions', err);
+        throw err;
+    }
+}
+
 // --- Player Container Management ---
 
 async function createPlayerContainer(data) {
@@ -107,7 +124,7 @@ async function createPlayerContainer(data) {
         0, // userConnected_count
         data.session_id,
         0, // totalScore
-        'creating'
+        data.status || 'creating'
     ];
 
     try {
@@ -208,22 +225,46 @@ async function getAdminByNickname(nickname) {
 async function getLeaderboard(sessionId) {
     // If sessionId is null, get for the active session or return empty
     if (!sessionId) {
-        const session = await getPendingSession(); // Helper for 'active' too? Pending/Active
-        // Actually we need 'active' for leaderboard usually.
-        // Let's assume passed sessionId for now, or fetch active.
+        const session = await getPendingSession();
+        if (session) sessionId = session.id;
     }
 
-    // Join with session? No, just filter by session_id in playerContainer
+    // Get session to determine mode (FFA vs Teams)
+    const sessionRes = await query('SELECT "maxPlayersPerTeam" FROM "session" WHERE "id" = $1', [sessionId]);
+    const maxPlayersPerTeam = sessionRes.rows[0] ? parseInt(sessionRes.rows[0].maxPlayersPerTeam, 10) : 1;
+    const isFFA = maxPlayersPerTeam === 1;
+
+    // Query to get leaderboard with player names
+    // For FFA: Get the user's nickName
+    // For Teams: We'll generate Team A, B, C on the frontend based on position
     const queryText = `
-      SELECT "playerContainer_id", "containerCode", "totalScore", "containerStatus", "userConnected_count" as participants,
-             (SELECT COUNT(*) FROM "container_logs" WHERE "playerContainer_id" = pc."playerContainer_id" AND "event_type" = 'level_completed') as levels_completed
+      SELECT 
+        pc."playerContainer_id", 
+        pc."containerCode", 
+        pc."totalScore", 
+        pc."containerStatus", 
+        pc."userConnected_count" as participants,
+        (SELECT COUNT(*) FROM "container_logs" WHERE "playerContainer_id" = pc."playerContainer_id" AND "event_type" = 'level_completed') as levels_completed,
+        (SELECT STRING_AGG(u."nickName", ', ') FROM "user" u WHERE u."playerContainer_id" = pc."playerContainer_id") as player_names
       FROM "playerContainer" pc
-      WHERE "session_id" = $1
-      ORDER BY "totalScore" DESC
+      WHERE pc."session_id" = $1
+      ORDER BY pc."totalScore" DESC
     `;
     const res = await query(queryText, [sessionId]);
-    return res.rows;
+
+    // Add mode info and generate team names
+    const leaderboard = res.rows.map((row, index) => ({
+        ...row,
+        isFFA,
+        teamLetter: String.fromCharCode(65 + index), // A, B, C, D...
+        displayName: isFFA
+            ? (row.player_names || `Player ${index + 1}`)
+            : `Team ${String.fromCharCode(65 + index)}`
+    }));
+
+    return leaderboard;
 }
+
 
 async function getRecentEvents(sessionId) {
     const queryText = `
@@ -236,6 +277,155 @@ async function getRecentEvents(sessionId) {
     `;
     const res = await query(queryText, [sessionId]);
     return res.rows;
+}
+
+async function deleteAllSessions() {
+    // TRUNCATE is faster and cleaner for "clearing all history"
+    // CASCADE ensuring all dependent tables (playerContainer, logs) are also cleared if FKs exist
+    // If not, we might need to delete from them first. assuming CASCADE works or we want to try generic delete.
+    // Let's use DELETE FROM "session" to be safe(er) about triggers, but TRUNCATE is better for IDs.
+    // The user asked to "clear all session history".
+    const queryText = 'TRUNCATE TABLE "session" CASCADE';
+    try {
+        await query(queryText);
+        return true;
+    } catch (err) {
+        console.error('Error deleting all sessions', err);
+        throw err;
+    }
+}
+
+// --- Player Join Functions ---
+
+async function getSessionByCode(sessionCode) {
+    // Find a session by its 6-digit code that is pending or active
+    const queryText = `
+      SELECT * FROM "session" 
+      WHERE "sessionCode" = $1 
+      AND "session_status" IN ('pending', 'active')
+    `;
+    try {
+        const res = await query(queryText, [sessionCode]);
+        return res.rows[0];
+    } catch (err) {
+        console.error('Error getting session by code', err);
+        throw err;
+    }
+}
+
+async function getAvailableContainer(sessionId, maxPlayersPerTeam) {
+    // Find a container that has room for more players
+    const queryText = `
+      SELECT * FROM "playerContainer" 
+      WHERE "session_id" = $1 
+      AND "userConnected_count" < $2
+      AND "containerStatus" IN ('started', 'healthy', 'creating')
+      ORDER BY "userConnected_count" ASC
+      LIMIT 1
+    `;
+    try {
+        const res = await query(queryText, [sessionId, maxPlayersPerTeam]);
+        return res.rows[0];
+    } catch (err) {
+        console.error('Error getting available container', err);
+        throw err;
+    }
+}
+
+async function createUser(data) {
+    const id = generateId();
+
+    // Normalize nickname to lowercase for consistency
+    const normalizedNickName = data.nickName.toLowerCase();
+
+    // Check for duplicate nickname within the same session
+    // Get the session_id from the container
+    const containerRes = await query(
+        'SELECT "session_id" FROM "playerContainer" WHERE "playerContainer_id" = $1',
+        [data.playerContainer_id]
+    );
+
+    if (containerRes.rows.length > 0) {
+        const sessionId = containerRes.rows[0].session_id;
+
+        // Check if nickname already exists in this session
+        const duplicateCheck = await query(`
+            SELECT u."user_id" FROM "user" u
+            JOIN "playerContainer" pc ON u."playerContainer_id" = pc."playerContainer_id"
+            WHERE LOWER(u."nickName") = $1 AND pc."session_id" = $2
+        `, [normalizedNickName, sessionId]);
+
+        if (duplicateCheck.rows.length > 0) {
+            throw new Error('Display name already taken in this session');
+        }
+    }
+
+    const queryText = `
+      INSERT INTO "user" ("user_id", "nickName", "playerContainer_id")
+      VALUES ($1, $2, $3)
+      RETURNING *
+    `;
+    const values = [id, normalizedNickName, data.playerContainer_id];
+
+    try {
+        const res = await query(queryText, values);
+        return res.rows[0];
+    } catch (err) {
+        console.error('Error creating user', err);
+        throw err;
+    }
+}
+
+
+async function incrementContainerUserCount(containerId) {
+    const queryText = `
+      UPDATE "playerContainer" 
+      SET "userConnected_count" = "userConnected_count" + 1 
+      WHERE "playerContainer_id" = $1
+      RETURNING *
+    `;
+    try {
+        const res = await query(queryText, [containerId]);
+        return res.rows[0];
+    } catch (err) {
+        console.error('Error incrementing container user count', err);
+        throw err;
+    }
+}
+
+async function getActiveSessionsForJoin() {
+    // Get sessions that players can join (pending or active)
+    const queryText = `
+      SELECT s.*, 
+        (SELECT COUNT(*) FROM "playerContainer" pc WHERE pc."session_id" = s."id") as team_count,
+        (SELECT COALESCE(SUM("userConnected_count"), 0) FROM "playerContainer" pc WHERE pc."session_id" = s."id") as current_players
+      FROM "session" s
+      WHERE "session_status" IN ('pending', 'active')
+      ORDER BY "createdAt" DESC
+    `;
+    try {
+        const res = await query(queryText);
+        return res.rows;
+    } catch (err) {
+        console.error('Error getting active sessions for join', err);
+        throw err;
+    }
+}
+
+async function getSessionPlayerCount(sessionId) {
+    // Count total players (users) in a session by summing userConnected_count across all containers
+    const queryText = `
+      SELECT COALESCE(SUM("userConnected_count"), 0) as total_players
+      FROM "playerContainer"
+      WHERE "session_id" = $1
+    `;
+    try {
+        const res = await query(queryText, [sessionId]);
+        return parseInt(res.rows[0].total_players, 10) || 0;
+    } catch (err) {
+        console.error('Error getting session player count', err);
+        throw err;
+    }
 }
 
 module.exports = {
@@ -251,5 +441,14 @@ module.exports = {
     logHint,
     getLeaderboard,
     getRecentEvents,
-    getAdminByNickname
+    getAdminByNickname,
+    deleteAllSessions,
+    terminateActiveSessions,
+    getSessionByCode,
+    getAvailableContainer,
+    createUser,
+    incrementContainerUserCount,
+    getActiveSessionsForJoin,
+    getSessionPlayerCount
 };
+

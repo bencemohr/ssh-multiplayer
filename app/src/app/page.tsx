@@ -100,9 +100,9 @@ export default function Home() {
         if (lbData.success && Array.isArray(lbData.leaderboard)) {
           const mapped = lbData.leaderboard.map((p: any, idx: number) => ({
             place: idx + 1,
-            name: `Container ${p.containerCode}`, // or a friendly name if we had one
+            name: p.displayName || `Player ${idx + 1}`,
             status: p.containerStatus || 'Active',
-            time: '-', // Needs logic for "finished time"
+            time: '-',
             points: parseInt(p.totalScore) || 0
           }));
           setParticipants(mapped);

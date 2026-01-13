@@ -3,6 +3,8 @@
 import { useTheme } from '@/contexts/ThemeContext'
 import { useState, memo, useMemo, useEffect } from 'react'
 
+import { useRouter } from 'next/navigation'
+
 // Data will be fetched from database
 interface SessionData {
   id: string
@@ -21,7 +23,8 @@ const SessionRow = memo(function SessionRow({
   borderColor,
   hoverRow,
   textTertiary,
-  titleColor
+  titleColor,
+  onViewDetails
 }: {
   session: SessionData
   isDark: boolean
@@ -29,6 +32,7 @@ const SessionRow = memo(function SessionRow({
   hoverRow: string
   textTertiary: string
   titleColor: string
+  onViewDetails: (id: string) => void
 }) {
   return (
     <tr className={`border-b ${borderColor} ${hoverRow} transition-colors`}>
@@ -42,7 +46,10 @@ const SessionRow = memo(function SessionRow({
       <td className={`py-4 px-4 font-mono ${textTertiary}`}>{session.end}</td>
       <td className={`py-4 px-4 font-mono ${textTertiary}`}>{session.participants}</td>
       <td className="py-4 px-4">
-        <button className={`${titleColor} hover:underline text-sm font-mono flex items-center gap-1`}>
+        <button
+          onClick={() => onViewDetails(session.dbId)}
+          className={`${titleColor} hover:underline text-sm font-mono flex items-center gap-1`}
+        >
           View results
           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -55,6 +62,7 @@ const SessionRow = memo(function SessionRow({
 
 export default function AdminOverviewPage() {
   const { isDark, classes } = useTheme()
+  const router = useRouter()
   const [sessions, setSessions] = useState<SessionData[]>([])
   const [activeSession, setActiveSession] = useState<SessionData | null>(null)
   const [newSessionDuration, setNewSessionDuration] = useState(60)
@@ -68,6 +76,11 @@ export default function AdminOverviewPage() {
   const fetchSessions = async () => {
     try {
       const res = await fetch('http://localhost:3001/api/sessions')
+      // ... (skip lines) ...
+      // This is too big to replace everything easily. Let's do two edits.
+      // Edit 1: Fix top of function.
+      // Edit 2: Fix loop.
+
       const data = await res.json()
       if (data.success && Array.isArray(data.sessions)) {
         const mapped = data.sessions.map((s: any) => ({
@@ -99,23 +112,6 @@ export default function AdminOverviewPage() {
   if (loading) {
     // Optional: We can show a loading spinner here for data fetching if we want
     // but 'authLoading' was removed as layout handles it.
-  }
-
-  const handleCreateSession = async () => {
-    if (activeSession) return alert('A session is already active/pending.')
-    setLoading(true)
-    try {
-      await fetch('http://localhost:3001/api/session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ durationSecond: newSessionDuration * 60 })
-      })
-      await fetchSessions()
-    } catch (e) {
-      console.error(e)
-    } finally {
-      setLoading(false)
-    }
   }
 
   const handleUpdateStatus = async (status: string) => {
@@ -153,16 +149,6 @@ export default function AdminOverviewPage() {
         <div className={`${bgCard} border ${borderColor} rounded-lg p-6 shadow-lg`}>
           <div className="flex justify-between items-center mb-6">
             <h3 className={`text-xl font-mono ${textTertiary}`}>Session Control</h3>
-            <button
-              onClick={() => {
-                localStorage.removeItem('admin_token');
-                localStorage.removeItem('admin_username');
-                window.location.href = '/login';
-              }}
-              className={`text-red-500 text-sm font-mono hover:underline`}
-            >
-              Logout
-            </button>
           </div>
 
           <div className="space-y-6">
@@ -198,15 +184,10 @@ export default function AdminOverviewPage() {
 
           <div className="space-y-4">
             {!activeSession ? (
-              <button
-                onClick={handleCreateSession}
-                disabled={loading}
-                className={`w-full ${buttonPrimary} px-6 py-3 rounded font-mono flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50`}>
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-                Create Session
-              </button>
+              <div className={`text-center py-6 ${textSecondary} font-mono text-sm border border-dashed ${borderColor} rounded`}>
+                <p className="mb-2">No session currently available.</p>
+                <a href="/admin/settings" className="text-[#0f8] hover:underline">Go to Settings to create one.</a>
+              </div>
             ) : (
               <>
                 {activeSession.status === 'Not started' && (
@@ -341,6 +322,7 @@ export default function AdminOverviewPage() {
                     hoverRow={hoverRow}
                     textTertiary={textTertiary}
                     titleColor={titleColor}
+                    onViewDetails={(id) => router.push(`/admin/sessions/${id}`)}
                   />
                 ))
               ) : (

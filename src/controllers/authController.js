@@ -15,14 +15,12 @@ async function login(req, res) {
         // 1. Find admin
         const admin = await dbService.getAdminByNickname(username);
         if (!admin) {
-            console.log(`Login failed: Admin user '${username}' not found.`);
             return res.status(401).json({ error: 'Invalid credentials' });
         }
 
         // 2. Check password
         const isMatch = await bcrypt.compare(password, admin.hashedPassword);
         if (!isMatch) {
-            console.log(`Login failed: Password mismatch for user '${username}'. Hash: ${admin.hashedPassword.substring(0, 10)}...`);
             return res.status(401).json({ error: 'Invalid credentials' });
         }
 
