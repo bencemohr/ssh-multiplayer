@@ -3,6 +3,7 @@
 import Header from '@/components/Header'
 import { useTheme } from '@/contexts/ThemeContext'
 import { useState, useEffect, memo } from 'react'
+import { API } from '@/lib/api'
 
 interface ActiveSession {
   id: string
@@ -52,7 +53,7 @@ export default function JoinPage() {
   useEffect(() => {
     const fetchActiveSessions = async () => {
       try {
-        const response = await fetch('http://localhost:3001/api/sessions/active')
+        const response = await fetch(API.sessionsActive())
         const data = await response.json()
         if (data.success) {
           setActiveSessions(data.sessions)
@@ -75,7 +76,7 @@ export default function JoinPage() {
     setIsLoading(true)
 
     try {
-      const response = await fetch('http://localhost:3001/api/join', {
+      const response = await fetch(API.join(), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

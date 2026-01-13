@@ -4,6 +4,7 @@ import { useTheme } from '@/contexts/ThemeContext'
 import { useState, memo, useMemo, useEffect } from 'react'
 
 import { useRouter } from 'next/navigation'
+import { API } from '@/lib/api'
 
 // Data will be fetched from database
 interface SessionData {
@@ -75,7 +76,7 @@ export default function AdminOverviewPage() {
 
   const fetchSessions = async () => {
     try {
-      const res = await fetch('http://localhost:3001/api/sessions')
+      const res = await fetch(API.sessions())
       // ... (skip lines) ...
       // This is too big to replace everything easily. Let's do two edits.
       // Edit 1: Fix top of function.
@@ -123,7 +124,7 @@ export default function AdminOverviewPage() {
       if (status === 'In progress') apiStatus = 'active'
       if (status === 'Finished') apiStatus = 'completed'
 
-      await fetch(`http://localhost:3001/api/sessions/${activeSession.dbId}/status`, {
+      await fetch(API.sessionStatus(activeSession.dbId), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: apiStatus })

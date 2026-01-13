@@ -4,6 +4,7 @@ import { useTheme } from '@/contexts/ThemeContext'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { API } from '@/lib/api'
 
 export default function LoginPage() {
     const { isDark, classes } = useTheme()
@@ -22,7 +23,7 @@ export default function LoginPage() {
         setLoading(true)
 
         try {
-            const res = await fetch('http://localhost:3001/api/auth/login', {
+            const res = await fetch(API.authLogin(), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, password })

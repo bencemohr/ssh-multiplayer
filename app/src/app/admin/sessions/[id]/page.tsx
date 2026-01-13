@@ -4,6 +4,7 @@ import { useTheme } from '@/contexts/ThemeContext'
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
+import { API } from '@/lib/api'
 
 interface LeaderboardEntry {
     playerContainer_id: string
@@ -44,8 +45,8 @@ export default function SessionDetailsPage() {
         const fetchData = async () => {
             try {
                 const [lbRes, eventsRes] = await Promise.all([
-                    fetch(`http://localhost:3001/api/sessions/${sessionId}/leaderboard`),
-                    fetch(`http://localhost:3001/api/sessions/${sessionId}/events`)
+                    fetch(API.sessionLeaderboard(sessionId)),
+                    fetch(API.sessionEvents(sessionId))
                 ])
 
                 const lbData = await lbRes.json()

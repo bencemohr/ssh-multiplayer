@@ -3,6 +3,7 @@
 import { useTheme } from '@/contexts/ThemeContext'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { API } from '@/lib/api'
 
 export default function AdminSettingsPage() {
   const { isDark, classes } = useTheme()
@@ -40,7 +41,7 @@ export default function AdminSettingsPage() {
       // Logic: If Team Mode, use teamCount. If FFA, teams = maxPlayers (1 container per player)
       const finalTeamsCount = isTeamMode ? teamCount : maxPlayers
 
-      const res = await fetch('http://localhost:3001/api/session', {
+      const res = await fetch(API.createSession(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -72,7 +73,7 @@ export default function AdminSettingsPage() {
         setLoading(true)
 
         // Call the delete all sessions endpoint
-        const res = await fetch('http://localhost:3001/api/sessions', {
+        const res = await fetch(API.sessions(), {
           method: 'DELETE'
         })
         const data = await res.json()

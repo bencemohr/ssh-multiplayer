@@ -2,6 +2,7 @@
 
 import { useTheme } from '@/contexts/ThemeContext'
 import { useState, memo, useMemo, useEffect } from 'react'
+import { API } from '@/lib/api'
 
 interface Player {
   playerContainer_id: string
@@ -48,8 +49,8 @@ const PlayerRow = memo(function PlayerRow({
       <td className={`py-4 px-6 font-mono ${textTertiary}`}>{player.containerCode}</td>
       <td className="py-4 px-6">
         <span className={`inline-flex items-center gap-2 ${player.containerStatus === 'running' || player.containerStatus === 'active' // assuming status values
-            ? isDark ? 'bg-[rgba(0,255,136,0.2)]' : 'bg-[#d1fae5]'
-            : isDark ? 'bg-[rgba(128,128,144,0.2)]' : 'bg-[#e5e7eb]'
+          ? isDark ? 'bg-[rgba(0,255,136,0.2)]' : 'bg-[#d1fae5]'
+          : isDark ? 'bg-[rgba(128,128,144,0.2)]' : 'bg-[#e5e7eb]'
           } ${player.containerStatus === 'running' || player.containerStatus === 'active'
             ? isDark ? 'text-[#0f8]' : 'text-[#065f46]'
             : textSecondary
@@ -83,7 +84,7 @@ export default function AdminPlayersPage() {
     try {
       setLoading(true)
       // First get sessions to find active one
-      const sessRes = await fetch('http://localhost:3001/api/sessions')
+      const sessRes = await fetch(API.sessions())
       const sessData = await sessRes.json()
 
       if (sessData.success && sessData.sessions && sessData.sessions.length > 0) {
@@ -92,7 +93,7 @@ export default function AdminPlayersPage() {
         const activeSession = sessData.sessions[0] // Simplified, might want to find 'running'
 
         if (activeSession) {
-          const lbRes = await fetch(`http://localhost:3001/api/sessions/${activeSession.id}/leaderboard`)
+          const lbRes = await fetch(API.sessionLeaderboard(activeSession.id))
           const lbData = await lbRes.json()
           if (lbData.success) {
             setPlayers(lbData.leaderboard)

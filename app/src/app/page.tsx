@@ -3,6 +3,7 @@
 import Header from '@/components/Header'
 import { useTheme } from '@/contexts/ThemeContext'
 import { memo, useMemo, useState, useEffect } from 'react'
+import { API } from '@/lib/api'
 
 interface Participant {
   place: number
@@ -77,7 +78,7 @@ export default function Home() {
   const fetchSessionAndLeaderboard = async () => {
     try {
       // 1. Get active session
-      const sessionRes = await fetch('http://localhost:3001/api/sessions');
+      const sessionRes = await fetch(API.sessions());
       const sessionData = await sessionRes.json();
 
       if (!sessionData.success || !Array.isArray(sessionData.sessions)) return;
@@ -94,7 +95,7 @@ export default function Home() {
         });
 
         // 2. Get leaderboard
-        const lbRes = await fetch(`http://localhost:3001/api/sessions/${active.id}/leaderboard`);
+        const lbRes = await fetch(API.sessionLeaderboard(active.id));
         const lbData = await lbRes.json();
 
         if (lbData.success && Array.isArray(lbData.leaderboard)) {

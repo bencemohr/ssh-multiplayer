@@ -4,6 +4,7 @@ import { useTheme } from '@/contexts/ThemeContext'
 import { useState, memo, useMemo, useEffect } from 'react'
 
 import { useRouter } from 'next/navigation'
+import { API } from '@/lib/api'
 
 // Data will be fetched from database
 interface SessionData {
@@ -29,7 +30,7 @@ export default function AdminSessionsPage() {
     // Poll for sessions or fetch once? Ideally polling or SWR, but fetch once for now
     const fetchSessions = async () => {
       try {
-        const res = await fetch('http://localhost:3001/api/sessions')
+        const res = await fetch(API.sessions())
         const data = await res.json()
         if (data.success && Array.isArray(data.sessions)) {
           const mapped = data.sessions.map((s: any) => ({
