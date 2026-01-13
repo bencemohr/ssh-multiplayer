@@ -63,6 +63,16 @@ services:
       timeout: 5s
       retries: 5
 
+  # Attacker Image Builder (ensures image exists)
+  attacker-image:
+    build:
+      context: .
+      dockerfile: templates/docker/Dockerfile.attacker
+    image: mits-attacker:latest
+    container_name: mits-attacker-builder
+    entrypoint: [ "/bin/true" ]
+    restart: "no"
+
   # pgAdmin4 - Database Management UI
   pgadmin:
     image: dpage/pgadmin4

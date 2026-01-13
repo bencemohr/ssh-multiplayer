@@ -401,9 +401,15 @@ async function joinSession(req, res) {
         }
 
         // Create a new container on-the-fly for this player
-        const baseApiUrl = process.env.CONTAINER_API_URL || 'http://localhost:3000';
+        // Create a new container on-the-fly for this player
+        // Generate a unique name for the Docker container
+        const containerName = `mits_p_${sessionCode}_${currentPlayerCount + 1}_${Date.now().toString().slice(-4)}`;
+
+        console.log(`Spinning up attacker container: ${containerName}`);
+        const attackerContainer = await dockerService.createAttacker(containerName);
+
         container = await dbService.createPlayerContainer({
-          container_url: `${baseApiUrl}/player-${currentPlayerCount + 1}`,
+          container_url: attackerContainer.terminal_url,
           session_id: session.id,
           status: 'started'
         });

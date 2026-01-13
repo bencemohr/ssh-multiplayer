@@ -58,13 +58,13 @@ async function createAttacker(name) {
     await container.start();
 
     // Wait a moment for gotty to start and container to initialize
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise(resolve => setTimeout(resolve, 2000));
 
     // Get container hostname (short container ID)
     const hostname = await getContainerHostname(container);
 
     // Stop the container - admin will start it when needed
-    await container.stop();
+    // await container.stop();
 
     return {
       id: container.id,
@@ -73,7 +73,7 @@ async function createAttacker(name) {
       port: hostPort,
       hostname: hostname,
       terminal_url: hostname ? `http://localhost:${hostPort}/${hostname}/` : `http://localhost:${hostPort}/`,
-      status: 'stopped'
+      status: 'running'
     };
   } catch (error) {
     throw new Error(`Docker create attacker failed: ${error.message}`);
@@ -85,7 +85,7 @@ async function stopContainersByLabel(labelKey, labelValue) {
   try {
     const filters = {};
     filters['label'] = [`${labelKey}=${labelValue}`];
-    
+
     const containers = await docker.listContainers({ filters, all: true });
     const stopped = [];
 
@@ -111,7 +111,7 @@ async function startContainersByLabel(labelKey, labelValue) {
   try {
     const filters = {};
     filters['label'] = [`${labelKey}=${labelValue}`];
-    
+
     const containers = await docker.listContainers({ filters, all: true });
     const started = [];
 

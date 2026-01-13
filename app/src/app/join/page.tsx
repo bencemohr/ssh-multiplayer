@@ -93,8 +93,14 @@ export default function JoinPage() {
         throw new Error(data.error || 'Failed to join session')
       }
 
+      // Fix localhost URL for LAN
+      let url = data.team.url;
+      if (typeof window !== 'undefined' && url && url.includes('localhost')) {
+        url = url.replace('localhost', window.location.hostname);
+      }
+
       setSuccess({
-        teamUrl: data.team.url,
+        teamUrl: url,
         teamCode: data.team.code,
       })
     } catch (err) {
