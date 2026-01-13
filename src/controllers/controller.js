@@ -7,8 +7,18 @@ async function createSession(req, res) {
   try {
     const { durationSecond, maxPlayers, teamsCount, maxPlayersPerTeam } = req.body;
 
+    console.log('Creating session:', JSON.stringify(req.body));
+
     // Stop any in-progress sessions first
     await dbService.terminateActiveSessions();
+
+    // Clean up Docker containers from previous session
+    try {
+      await dockerService.removeContainersByLabel('type', 'MITS-ATTACKER');
+      console.log('Cleaned up previous attacker containers');
+    } catch (err) {
+      console.warn('Warning: Failed to cleanup containers:', err.message);
+    }
 
     // Create the session
     const session = await dbService.createSession(req.body);
@@ -23,11 +33,15 @@ async function createSession(req, res) {
     if (!isFFA && teamsCount > 0) {
       // Team mode: Pre-create the team containers
       const containerPromises = [];
-      const baseApiUrl = process.env.CONTAINER_API_URL || 'http://localhost:3000';
-
       for (let i = 0; i < teamsCount; i++) {
+        // Generate a name for the team container
+        const containerName = `mits_team_${session.sessionCode}_${i + 1}_${Date.now().toString().slice(-4)}`;
+        console.log(`Spinning up team container: ${containerName}`);
+
+        const attackerContainer = await dockerService.createAttacker(containerName);
+
         containerPromises.push(dbService.createPlayerContainer({
-          container_url: `${baseApiUrl}/team-${i + 1}`,
+          container_url: attackerContainer.terminal_url,
           session_id: session.id,
           status: 'started'
         }));
@@ -74,6 +88,18 @@ async function updateSessionStatus(req, res) {
     const { id } = req.params;
     const { status } = req.body;
     const session = await dbService.updateSessionStatus(id, status);
+
+    // If session ended, clean up docker containers
+    if (status === 'ended' || status === 'terminated' || status === 'stopped' || status === 'completed') {
+      try {
+        await dockerService.removeContainersByLabel('type', 'MITS-ATTACKER');
+        // If we have victim containers later, stop them too
+        // await dockerService.removeContainersByLabel('type', 'MITS-VICTIM');
+        console.log(`Cleaned up containers for session ${id}`);
+      } catch (e) {
+        console.warn('Error cleaning up containers:', e.message);
+      }
+    }
     res.json({
       success: true,
       message: 'Session status updated',

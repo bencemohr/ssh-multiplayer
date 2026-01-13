@@ -231,7 +231,10 @@ async function getLeaderboard(sessionId) {
 
     // Get session to determine mode (FFA vs Teams)
     const sessionRes = await query('SELECT "maxPlayersPerTeam" FROM "session" WHERE "id" = $1', [sessionId]);
-    const maxPlayersPerTeam = sessionRes.rows[0] ? parseInt(sessionRes.rows[0].maxPlayersPerTeam, 10) : 1;
+    const row = sessionRes.rows[0];
+    const maxPlayersPerTeam = row
+        ? parseInt(row.maxPlayersPerTeam || row.maxplayersperteam || 1, 10)
+        : 1;
     const isFFA = maxPlayersPerTeam === 1;
 
     // Query to get leaderboard with player names

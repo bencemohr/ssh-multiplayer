@@ -40,6 +40,8 @@ export default function AdminSettingsPage() {
     try {
       // Logic: If Team Mode, use teamCount. If FFA, teams = maxPlayers (1 container per player)
       const finalTeamsCount = isTeamMode ? teamCount : maxPlayers
+      // Calculate max players per team (use Ceil to ensure everyone fits)
+      const finalMaxPlayersPerTeam = isTeamMode ? Math.ceil(maxPlayers / teamCount) : 1
 
       const res = await fetch(API.createSession(), {
         method: 'POST',
@@ -47,7 +49,8 @@ export default function AdminSettingsPage() {
         body: JSON.stringify({
           durationSecond: duration * 60,
           maxPlayers: maxPlayers,
-          teamsCount: finalTeamsCount
+          teamsCount: finalTeamsCount,
+          maxPlayersPerTeam: finalMaxPlayersPerTeam
         })
       })
       const data = await res.json()
