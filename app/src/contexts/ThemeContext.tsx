@@ -77,7 +77,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         inputBg: isDark ? 'bg-[#1a1a28]' : 'bg-[#f3f4f6]',
         inputBorder: isDark ? 'border-[rgba(0,255,136,0.2)]' : 'border-[#d1d5db]',
         buttonPrimary: 'bg-[#0f8] text-[#0a0a0f] hover:shadow-[0px_0px_20px_0px_rgba(0,255,136,0.3)]',
-        buttonSecondary: isDark ? 'bg-[#1a1a28] text-[#e0e0e0] hover:bg-[#252530]' : 'bg-[#e5e7eb] text-[#374151] hover:bg-[#d1d5db]',
+        buttonSecondary: isDark ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-[#e5e7eb] text-[#374151] hover:bg-[#d1d5db]',
         hoverRow: isDark ? 'hover:bg-[rgba(0,255,136,0.03)]' : 'hover:bg-[#f9fafb]',
         hoverBg: isDark ? 'hover:bg-[#1a1a28]' : 'hover:bg-[#f3f4f6]',
       }

@@ -9,6 +9,9 @@ RUN addgroup -S appuser && adduser -S appuser -G appuser
 # SSH Configuration - only key auth allowed
 RUN mkdir -p /etc/ssh && \
     ssh-keygen -A
+    
+ENV LEVEL_KEY=level3
+ENV LEVEL_POINTS=200
 
 RUN echo "Port 22" > /etc/ssh/sshd_config && \
     echo "PermitRootLogin no" >> /etc/ssh/sshd_config && \

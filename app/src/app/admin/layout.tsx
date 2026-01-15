@@ -3,7 +3,7 @@
 import Header from '@/components/Header'
 import { useTheme } from '@/contexts/ThemeContext'
 import { usePathname, useRouter } from 'next/navigation'
-import { ReactNode, memo, useMemo, useCallback } from 'react'
+import { ReactNode, memo, useMemo, useCallback, useState, useEffect } from 'react'
 
 interface AdminTab {
   id: string
@@ -13,13 +13,13 @@ interface AdminTab {
 }
 
 // Memoized tab button component
-const TabButton = memo(function TabButton({ 
-  tab, 
-  isActive, 
-  activeClass, 
-  inactiveClass, 
-  onClick 
-}: { 
+const TabButton = memo(function TabButton({
+  tab,
+  isActive,
+  activeClass,
+  inactiveClass,
+  onClick
+}: {
   tab: AdminTab
   isActive: boolean
   activeClass: string
@@ -78,6 +78,17 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const { isDark, classes } = useTheme()
   const pathname = usePathname()
   const router = useRouter()
+  const [authorized, setAuthorized] = useState(false)
+
+  // Auth Guard
+  useEffect(() => {
+    const token = localStorage.getItem('admin_token')
+    if (!token) {
+      window.location.href = '/login'
+    } else {
+      setAuthorized(true)
+    }
+  }, [])
 
   const { bgMain, bgCard, borderColor, titleColor, textSecondary, textPrimary } = classes
   const activeTab = 'bg-[#0f8] text-[#0a0a0f]'
@@ -88,6 +99,11 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const handleTabClick = useCallback((path: string) => {
     router.push(path)
   }, [router])
+
+  // Prevent flash of unauthenticated content
+  if (!authorized) {
+    return null
+  }
 
   return (
     <div className={`min-h-screen ${bgMain} ${textPrimary}`}>

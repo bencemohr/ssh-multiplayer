@@ -1,11 +1,15 @@
 'use client'
 
 import { useTheme } from '@/contexts/ThemeContext'
-import { useState, memo, useMemo } from 'react'
+import { useState, memo, useMemo, useEffect } from 'react'
+
+import { useRouter } from 'next/navigation'
+import { API } from '@/lib/api'
 
 // Data will be fetched from database
 interface SessionData {
   id: string
+  dbId: string
   status: string
   startTime: string
   endTime: string
@@ -15,11 +19,45 @@ interface SessionData {
   winner: string
 }
 
-const sessionsData: SessionData[] = []
-
 export default function AdminSessionsPage() {
   const { isDark, classes } = useTheme()
+  const router = useRouter()
   const [filter, setFilter] = useState('All')
+  const [sessionsData, setSessionsData] = useState<SessionData[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    // Poll for sessions or fetch once? Ideally polling or SWR, but fetch once for now
+    const fetchSessions = async () => {
+      try {
+        const res = await fetch(API.sessions())
+        const data = await res.json()
+        if (data.success && Array.isArray(data.sessions)) {
+          const mapped = data.sessions.map((s: any) => ({
+            id: s.sessionCode ? `#${s.sessionCode}` : s.id, // Use friendly code if available
+            dbId: s.id, // Store real DB ID for navigation
+            status: s.session_status === 'pending' ? 'Not Started' : s.session_status === 'active' ? 'In Progress' : 'Finished',
+            startTime: new Date(s.createdAt).toLocaleString(),
+            endTime: s.destroyedAt ? new Date(s.destroyedAt).toLocaleString() : '-',
+            duration: Math.round((s.durationSecond || 3600) / 60),
+            participants: 0, // Placeholder
+            flags: s.totalFlag_count || 10,
+            winner: '-'
+          }))
+          setSessionsData(mapped)
+        }
+      } catch (err) {
+        console.error('Failed to fetch sessions', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchSessions()
+    // Optional: Poll every 10s
+    const interval = setInterval(fetchSessions, 10000)
+    return () => clearInterval(interval)
+  }, [])
 
   const { bgCard, borderColor, titleColor, textPrimary, textSecondary, textTertiary, buttonPrimary, buttonSecondary } = classes
 
@@ -41,9 +79,8 @@ export default function AdminSessionsPage() {
           <button
             key={filterOption}
             onClick={() => setFilter(filterOption)}
-            className={`${
-              filter === filterOption ? buttonPrimary : buttonSecondary
-            } px-4 py-2 rounded text-sm font-mono transition-all`}
+            className={`${filter === filterOption ? buttonPrimary : buttonSecondary
+              } px-4 py-2 rounded text-sm font-mono transition-all`}
           >
             {filterOption}
           </button>
@@ -123,7 +160,10 @@ export default function AdminSessionsPage() {
 
               {/* Actions */}
               <div className="mt-4 pt-4 border-t ${borderColor}">
-                <button className={`w-full ${titleColor} hover:underline text-sm font-mono flex items-center justify-center gap-2`}>
+                <button
+                  onClick={() => router.push(`/admin/sessions/${session.dbId}`)}
+                  className={`w-full ${titleColor} hover:underline text-sm font-mono flex items-center justify-center gap-2`}
+                >
                   View Details
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -157,7 +197,7 @@ export default function AdminSessionsPage() {
           </div>
           <div>
             <p className={`text-3xl font-mono font-bold ${textSecondary}`}>
-              {sessionsData.filter(s => s.status === 'Finished').length > 0 
+              {sessionsData.filter(s => s.status === 'Finished').length > 0
                 ? Math.round(sessionsData.filter(s => s.status === 'Finished').reduce((acc, s) => acc + s.duration, 0) / sessionsData.filter(s => s.status === 'Finished').length)
                 : 0}
             </p>

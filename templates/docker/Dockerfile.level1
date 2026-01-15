@@ -10,6 +10,9 @@ RUN echo "root:password123" | chpasswd
 RUN mkdir -p /etc/ssh && \
     ssh-keygen -A
 
+ENV LEVEL_KEY=level1
+ENV LEVEL_POINTS=100
+
 # Create sshd_config with misconfigurations
 RUN echo "Port 22" > /etc/ssh/sshd_config && \
     echo "PermitRootLogin yes" >> /etc/ssh/sshd_config && \

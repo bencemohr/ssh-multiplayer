@@ -33,13 +33,17 @@ services:
       DB_NAME: ${DB_NAME}
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
-      NODE_ENV: production
+      NODE_ENV: development
       PORT: 3001
+      ADMIN_PASSWORD_FILE: /data/admin_password
+      ADMIN_NICKNAME: admin
     depends_on:
       postgres:
         condition: service_healthy
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+      - ./src:/app/src
+      - admin_secret:/data
     restart: unless-stopped
 
   # PostgreSQL Database
@@ -57,10 +61,20 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./insertDb:/docker-entrypoint-initdb.d
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}" ]
       interval: 5s
       timeout: 5s
       retries: 5
+
+  # Attacker Image Builder (ensures image exists)
+  attacker-image:
+    build:
+      context: .
+      dockerfile: templates/docker/Dockerfile.attacker
+    image: mits-attacker:latest
+    container_name: mits-attacker-builder
+    entrypoint: [ "/bin/true" ]
+    restart: "no"
 
   # pgAdmin4 - Database Management UI
   pgadmin:
@@ -82,3 +96,4 @@ services:
 volumes:
   postgres_data:
   pgadmin_data:
+  admin_secret:

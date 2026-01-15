@@ -10,6 +10,9 @@ RUN addgroup -S sshuser && adduser -S sshuser -G sshuser
 RUN mkdir -p /etc/ssh && \
     ssh-keygen -A
 
+ENV LEVEL_KEY=level2
+ENV LEVEL_POINTS=150
+
 RUN echo "Port 22" > /etc/ssh/sshd_config && \
     echo "PermitRootLogin no" >> /etc/ssh/sshd_config && \
     echo "PasswordAuthentication no" >> /etc/ssh/sshd_config && \
