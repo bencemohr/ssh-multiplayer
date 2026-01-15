@@ -24,7 +24,7 @@ async function createAttacker(req, res) {
 // Log a breach/login event from container
 async function breach(req, res) {
   try {
-    const { remote_ip, username, container_id, timestamp } = req.body;
+    const { remote_ip, username, container_id, level_id, timestamp } = req.body;
     
     // TODO: Save to database
     console.log('[BREACH LOGGED]', {
