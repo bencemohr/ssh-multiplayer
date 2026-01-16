@@ -46,7 +46,7 @@ RUN echo "╔══════════════════════�
 
 # Copy login logger script
 COPY templates/docker/login-logger.sh /usr/local/bin/login-logger.sh
-RUN chmod +x /usr/local/bin/login-logger.sh
+RUN sed -i 's/\r$//' /usr/local/bin/login-logger.sh && chmod +x /usr/local/bin/login-logger.sh
 
 # Add container labels
 LABEL type=MITS-VICTIM app=mits-multiplayer

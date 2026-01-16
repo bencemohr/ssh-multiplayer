@@ -293,6 +293,18 @@ async function findContainerByUsername(username) {
     return res.rows[0] || null;
 }
 
+async function findContainerByTerminalPathSegment(pathSegment) {
+    if (!pathSegment) return null;
+    const normalized = String(pathSegment).trim();
+    if (!normalized) return null;
+
+    const res = await query(
+        'SELECT * FROM "playerContainer" WHERE "container_url" ILIKE $1 LIMIT 1',
+        [`%${normalized}%`]
+    );
+    return res.rows[0] || null;
+}
+
 // --- Event Logging ---
 
 async function logBreach(data) {
@@ -640,6 +652,7 @@ module.exports = {
     updateContainerStatus,
     findContainerByCode,
     findContainerByUsername,
+    findContainerByTerminalPathSegment,
     logBreach,
     logHint,
     logEvent,

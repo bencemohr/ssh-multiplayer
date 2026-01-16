@@ -26,6 +26,10 @@ router.get('/sessions', controller.getAllSessions);
 // Get active sessions for players to join
 router.get('/sessions/active', controller.getActiveSessions);
 
+// POST /api/containers/deploy-victims
+// Manual deploy for admin
+router.post('/containers/deploy-victims', controller.deployVictims);
+
 // DELETE /api/sessions
 // Clear all session history
 router.delete('/sessions', controller.deleteAllSessions);

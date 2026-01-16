@@ -20,7 +20,15 @@ export function getApiBaseUrl(): string {
         const hostname = window.location.hostname;
         return `http://${hostname}:${API_PORT}`;
     }
+    
     // Fallback for server-side rendering
+    // If running in Docker (Next.js server-side), 'localhost' won't work.
+    // We should use the docker-compose service name 'api' if possible,
+    // or fallback to localhost for local non-docker dev.
+    if (process.env.NODE_ENV === 'production' || process.env.DOCKER_ENV) {
+         return `http://api:${API_PORT}`;
+    }
+
     return `http://localhost:${API_PORT}`;
 }
 

@@ -35,6 +35,7 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
       NODE_ENV: development
       PORT: 3001
+      FORCE_BUILD_VICTIMS: "true"
       ADMIN_PASSWORD_FILE: /data/admin_password
       ADMIN_NICKNAME: admin
     depends_on:
@@ -43,6 +44,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./src:/app/src
+      - ./templates:/app/templates
       - admin_secret:/data
     restart: unless-stopped
 

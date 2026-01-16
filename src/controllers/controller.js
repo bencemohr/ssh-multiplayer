@@ -52,6 +52,17 @@ async function createSession(req, res) {
     }
     // For FFA mode: No pre-creation needed. Containers are created on-demand when players join.
 
+    // --- Start all VICTIM containers (levels) ---
+    // Make this non-blocking so session creation returns fast
+    dockerService.deployVictims({ forceBuild: process.env.FORCE_BUILD_VICTIMS === 'true' })
+      .then(victims => {
+        console.log(`Started ${victims.length} victim containers for session ${session.sessionCode}`);
+      })
+      .catch(err => {
+        console.error('Failed to deploy victims:', err);
+      });
+    // ---------------------------------------------
+
     res.status(201).json({
       success: true,
       message: isFFA ? 'Session created (FFA mode - containers created on join)' : 'Session created with teams',
@@ -97,8 +108,7 @@ async function updateSessionStatus(req, res) {
     if (status === 'ended' || status === 'terminated' || status === 'stopped' || status === 'completed') {
       try {
         await dockerService.removeContainersByLabel('type', 'MITS-ATTACKER');
-        // If we have victim containers later, stop them too
-        // await dockerService.removeContainersByLabel('type', 'MITS-VICTIM');
+        await dockerService.removeContainersByLabel('type', 'MITS-VICTIM'); // Cleanup victims too
         console.log(`Cleaned up containers for session ${id}`);
       } catch (e) {
         console.warn('Error cleaning up containers:', e.message);
@@ -174,6 +184,14 @@ async function breach(req, res) {
     // Fallback: If code is missing/wrong, try finding it via the user's nickname
     if (!container && username) {
       container = await dbService.findContainerByUsername(username);
+    }
+
+    // Fallback: attribute by SSH client container IP -> attacker container -> playerContainer
+    if (!container && remote_ip) {
+      const attackerHostname = await dockerService.getAttackerHostnameByIp(remote_ip);
+      if (attackerHostname) {
+        container = await dbService.findContainerByTerminalPathSegment(`/${attackerHostname}/`);
+      }
     }
 
     if (!container) {
@@ -549,6 +567,22 @@ async function getActiveSessions(req, res) {
   }
 }
 
+// POST /api/containers/deploy-victims
+// Build (if needed) and start all victim containers (level1, level2, ...)
+async function deployVictims(req, res) {
+  try {
+    const forceBuild = Boolean(req?.body?.forceBuild);
+    const victims = await dockerService.deployVictims({ forceBuild });
+    res.json({
+      success: true,
+      victims
+    });
+  } catch (error) {
+    console.error('Error deploying victim containers:', error);
+    res.status(500).json({ error: error.message });
+  }
+}
+
 module.exports = {
   createSession,
   getAllSessions,
@@ -562,6 +596,7 @@ module.exports = {
   attackerStart,
   victimStop,
   victimStart,
+  deployVictims,
   getLeaderboard,
   getEvents,
   getPointsDistribution,

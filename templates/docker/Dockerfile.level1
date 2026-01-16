@@ -36,7 +36,7 @@ RUN echo "╔══════════════════════�
 
 # Copy login logger script
 COPY templates/docker/login-logger.sh /usr/local/bin/login-logger.sh
-RUN chmod +x /usr/local/bin/login-logger.sh
+RUN sed -i 's/\r$//' /usr/local/bin/login-logger.sh && chmod +x /usr/local/bin/login-logger.sh
 
 # Create a flag file in root directory
 RUN echo "FLAG{ssh_default_credentials_vulnerable}" > /root/flag.txt && \
