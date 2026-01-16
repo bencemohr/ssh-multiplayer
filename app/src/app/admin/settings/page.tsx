@@ -188,9 +188,12 @@ export default function AdminSettingsPage() {
 
         <h4 className={`text-lg font-mono ${textTertiary} mb-4 flex items-center gap-2 border-t ${borderColor} pt-4`}>
           Scoring Configuration
+          <span className="text-xs bg-yellow-500/20 text-yellow-500 px-2 py-1 rounded ml-2 uppercase font-bold tracking-wider">
+            In Development
+          </span>
         </h4>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6 opacity-60 grayscale pointer-events-none select-none">
           <div>
             <label className={`block ${textSecondary} text-sm font-mono mb-2`}>
               Points per Flag
@@ -198,8 +201,9 @@ export default function AdminSettingsPage() {
             <input
               type="number"
               value={pointsPerFlag}
+              disabled
               onChange={(e) => setPointsPerFlag(parseInt(e.target.value) || 0)}
-              className={`w-full ${inputDarkBg} border ${inputBorder} rounded px-4 py-3 font-mono focus:outline-none focus:border-[#0f8]`}
+              className={`w-full ${inputDarkBg} border ${inputBorder} rounded px-4 py-3 font-mono focus:outline-none focus:border-[#0f8] cursor-not-allowed`}
             />
           </div>
 
@@ -210,8 +214,9 @@ export default function AdminSettingsPage() {
             <input
               type="number"
               value={hintPenalty}
+              disabled
               onChange={(e) => setHintPenalty(parseInt(e.target.value) || 0)}
-              className={`w-full ${inputDarkBg} border ${inputBorder} rounded px-4 py-3 font-mono focus:outline-none focus:border-[#0f8]`}
+              className={`w-full ${inputDarkBg} border ${inputBorder} rounded px-4 py-3 font-mono focus:outline-none focus:border-[#0f8] cursor-not-allowed`}
             />
           </div>
 
@@ -222,8 +227,9 @@ export default function AdminSettingsPage() {
             <input
               type="number"
               value={firstBloodBonus}
+              disabled
               onChange={(e) => setFirstBloodBonus(parseInt(e.target.value) || 0)}
-              className={`w-full ${inputDarkBg} border ${inputBorder} rounded px-4 py-3 font-mono focus:outline-none focus:border-[#0f8]`}
+              className={`w-full ${inputDarkBg} border ${inputBorder} rounded px-4 py-3 font-mono focus:outline-none focus:border-[#0f8] cursor-not-allowed`}
             />
           </div>
         </div>
