@@ -5,7 +5,8 @@
 # Examples: hint, hint level1, hint level2
 
 API_HOST=${API_HOST:-"api"}
-API_PORT=${API_PORT:-"3000"}
+# API runs on 3001; 3000 is the Next.js UI
+API_PORT=${API_PORT:-"3001"}
 CONTAINER_ID=$(cat /etc/hostname)
 USERNAME=${USER:-"unknown"}
 

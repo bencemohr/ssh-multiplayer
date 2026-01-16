@@ -26,6 +26,10 @@ router.get('/sessions', controller.getAllSessions);
 // Get active sessions for players to join
 router.get('/sessions/active', controller.getActiveSessions);
 
+// POST /api/containers/deploy-victims
+// Manual deploy for admin
+router.post('/containers/deploy-victims', controller.deployVictims);
+
 // DELETE /api/sessions
 // Clear all session history
 router.delete('/sessions', controller.deleteAllSessions);
@@ -36,6 +40,9 @@ router.put('/sessions/:id/status', controller.updateSessionStatus);
 
 // GET /api/sessions/:id/leaderboard
 router.get('/sessions/:id/leaderboard', controller.getLeaderboard);
+
+// GET /api/sessions/:id/points-distribution
+router.get('/sessions/:id/points-distribution', controller.getPointsDistribution);
 
 // GET /api/sessions/:id/events
 router.get('/sessions/:id/events', controller.getEvents);

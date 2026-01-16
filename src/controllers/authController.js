@@ -8,18 +8,25 @@ async function login(req, res) {
     try {
         const { username, password } = req.body;
 
-        if (!username || !password) {
+        const usernameNormalized = username !== undefined && username !== null
+            ? String(username).trim()
+            : '';
+        const passwordNormalized = password !== undefined && password !== null
+            ? String(password).trim()
+            : '';
+
+        if (!usernameNormalized || !passwordNormalized) {
             return res.status(400).json({ error: 'Username and password are required' });
         }
 
         // 1. Find admin
-        const admin = await dbService.getAdminByNickname(username);
+        const admin = await dbService.getAdminByNickname(usernameNormalized);
         if (!admin) {
             return res.status(401).json({ error: 'Invalid credentials' });
         }
 
         // 2. Check password
-        const isMatch = await bcrypt.compare(password, admin.hashedPassword);
+        const isMatch = await bcrypt.compare(passwordNormalized, admin.hashedPassword);
         if (!isMatch) {
             return res.status(401).json({ error: 'Invalid credentials' });
         }

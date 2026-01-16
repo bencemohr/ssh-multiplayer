@@ -13,7 +13,12 @@ The home repository for the MITS Multiplayer API
     ```bash
     node seed-admin.js
     ```
-    Creates user `admin` with password `password123`.
+    By default (Docker Compose), the admin password is generated automatically and stored in the API container volume.
+
+    Retrieve it with:
+    ```bash
+    docker compose exec api cat /data/admin_password
+    ```
 
 ## Development
 Carried out by IT2E for Maritime IT Security Research Group, NHL Stenden University of Applied Sciences. Emmen.

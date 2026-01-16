@@ -43,7 +43,8 @@ async function createSession(req, res) {
         containerPromises.push(dbService.createPlayerContainer({
           container_url: attackerContainer.terminal_url,
           session_id: session.id,
-          status: 'started'
+          status: 'started',
+          ip_address: attackerContainer.ip_address
         }));
       }
 
@@ -51,6 +52,17 @@ async function createSession(req, res) {
       teamsCreated = teamsCount;
     }
     // For FFA mode: No pre-creation needed. Containers are created on-demand when players join.
+
+    // --- Start all VICTIM containers (levels) ---
+    // Make this non-blocking so session creation returns fast
+    dockerService.deployVictims({ forceBuild: process.env.FORCE_BUILD_VICTIMS === 'true' })
+      .then(victims => {
+        console.log(`Started ${victims.length} victim containers for session ${session.sessionCode}`);
+      })
+      .catch(err => {
+        console.error('Failed to deploy victims:', err);
+      });
+    // ---------------------------------------------
 
     res.status(201).json({
       success: true,
@@ -61,7 +73,11 @@ async function createSession(req, res) {
     });
   } catch (error) {
     console.error('Error creating session:', error);
-    res.status(500).json({ error: error.message });
+    const statusCode = Number.isInteger(error?.statusCode) ? error.statusCode : 500;
+    res.status(statusCode).json({
+      error: error.message,
+      code: error.code
+    });
   }
 }
 
@@ -93,8 +109,7 @@ async function updateSessionStatus(req, res) {
     if (status === 'ended' || status === 'terminated' || status === 'stopped' || status === 'completed') {
       try {
         await dockerService.removeContainersByLabel('type', 'MITS-ATTACKER');
-        // If we have victim containers later, stop them too
-        // await dockerService.removeContainersByLabel('type', 'MITS-VICTIM');
+        await dockerService.removeContainersByLabel('type', 'MITS-VICTIM'); // Cleanup victims too
         console.log(`Cleaned up containers for session ${id}`);
       } catch (e) {
         console.warn('Error cleaning up containers:', e.message);
@@ -137,7 +152,8 @@ async function createAttacker(req, res) {
     // Save to DB
     const playerContainer = await dbService.createPlayerContainer({
       container_url: container.terminal_url,
-      session_id: sessionId
+      session_id: sessionId,
+      ip_address: container.ip_address
     });
 
     // We might want to link the docker ID to the DB ID or update the user table
@@ -159,40 +175,81 @@ async function createAttacker(req, res) {
 // Log a breach/login event from container
 async function breach(req, res) {
   try {
-    const { remote_ip, username, container_id, timestamp, playerContainer_id } = req.body;
+    let { remote_ip, username, containerCode, container_id, timestamp, level, point: pointFromBody, playerContainer_id } = req.body;
 
-    // We need playerContainer_id to log to DB.
-    // The container script might only know its own hostname/ID.
-    // For now we assume the client sends playerContainer_id or we look it up.
-    // Since we don't have a lookup by docker ID in dbService yet, we'll assume it's passed or we just rely on what we can.
+    console.log('Breach request received:', { remote_ip, username, containerCode, container_id, level, timestamp });
 
-    // If we only have container_id (docker ID), we'd need to look up playerContainer_id.
-    // Let's assume for this step that we can just log what we have, but the schema REQUIRES playerContainer_id.
-    // Ideally we should query "playerContainer" by some field. But "containerCode" is the only unique field besides ID.
-    // Let's assume the frontend/script passes the DB id, OR we fake it for now if missing to prevent crash.
-    // actually, let's just error if missing, or use a placeholder if we are in dev/test mode.
+    // New PointDistributionPart logic: Try to find container by code or username first
+    let container = null;
 
-    if (!playerContainer_id) {
-      // Try to find by container_id if we store it? we don't store docker_id in playerContainer table in the new schema...
-      // The schema has "containerCode". Maybe that maps to docker ID?
-      // Let's assume the user sends playerContainer_id.
-      // console.warn("Missing playerContainer_id for breach log");
+    if (containerCode) {
+      container = await dbService.findContainerByCode(containerCode);
     }
 
-    const log = await dbService.logBreach({
-      playerContainer_id: playerContainer_id || 1, // Fallback for testing if DB is empty/setup
-      point: 10,
-      metaData: { remote_ip, username, container_id, timestamp }
+    // Fallback: If code is missing/wrong, try finding it via the user's nickname
+    if (!container && username) {
+      container = await dbService.findContainerByUsername(username);
+    }
+
+    // Fallback: attribute by SSH client container IP -> attacker container -> playerContainer
+    if (!container && remote_ip) {
+      const attackerHostname = await dockerService.getAttackerHostnameByIp(remote_ip);
+      if (attackerHostname) {
+        container = await dbService.findContainerByTerminalPathSegment(`/${attackerHostname}/`);
+      }
+    }
+
+    // Our existing fix: If still no container, try to create a ghost container
+    if (!container) {
+      console.warn(`Could not resolve breach to any player container. Creating ghost container...`);
+      try {
+        const session = await dbService.getPendingSession();
+        const ghost = await dbService.createPlayerContainer({
+          container_url: `http://${remote_ip || 'unknown'}:3000`,
+          session_id: session?.id || 1,
+          status: 'ghost',
+          ip_address: remote_ip
+        });
+        playerContainer_id = ghost.playerContainer_id;
+        console.log(`Created Ghost Container ID: ${playerContainer_id}`);
+      } catch (e) {
+        console.error("Failed to create ghost container:", e);
+        return res.status(404).json({ error: "Player container not found and ghost creation failed" });
+      }
+    } else {
+      playerContainer_id = container.playerContainer_id;
+    }
+
+    const isLevelBreach = typeof level === 'string' && level.trim().length > 0;
+
+    const parsedPoint = pointFromBody !== undefined && pointFromBody !== null
+      ? Number.parseInt(String(pointFromBody), 10)
+      : NaN;
+
+    const point = isLevelBreach
+      ? (!Number.isNaN(parsedPoint)
+        ? parsedPoint
+        : await dbService.getLevelCompletionPoint(container?.session_id, level))
+      : 10;
+
+    const log = await dbService.logEvent({
+      playerContainer_id: playerContainer_id,
+      event_type: isLevelBreach ? 'level_completed' : 'foundFlag_accepted',
+      point,
+      metaData: {
+        remote_ip,
+        username,
+        level: isLevelBreach ? String(level).trim() : undefined,
+        levelKey: isLevelBreach ? String(level).trim() : undefined,
+        original_event: isLevelBreach ? 'level_breach' : 'breach_detected',
+        detected_at: timestamp
+      }
     });
 
-    res.status(201).json({
-      success: true,
-      message: 'Breach logged successfully',
-      log
-    });
+    res.status(201).json({ success: true, log });
   } catch (error) {
-    console.error('Error logging breach:', error);
-    res.status(500).json({ error: error.message });
+    console.error('Breach log failed:', error);
+    res.status(500).json({ error: "Database constraint or connection error" });
   }
 }
 
@@ -361,6 +418,31 @@ async function getEvents(req, res) {
   }
 }
 
+// GET /api/sessions/:id/points-distribution
+// Returns score breakdown per team/playerContainer based on logs, hints used, and level points.
+async function getPointsDistribution(req, res) {
+  try {
+    const { id } = req.params;
+
+    const hintPenaltyPerUseRaw = req.query.hintPenaltyPerUse;
+    const hintPenaltyPerUse = hintPenaltyPerUseRaw !== undefined
+      ? Number.parseInt(String(hintPenaltyPerUseRaw), 10)
+      : undefined;
+
+    const distribution = hintPenaltyPerUse !== undefined && !Number.isNaN(hintPenaltyPerUse)
+      ? await dbService.getPointDistribution(id, hintPenaltyPerUse)
+      : await dbService.getPointDistribution(id);
+
+    res.json({
+      success: true,
+      distribution
+    });
+  } catch (error) {
+    console.error('Error getting points distribution:', error);
+    res.status(500).json({ error: error.message });
+  }
+}
+
 // DELETE /api/sessions
 // Delete all sessions and history
 async function deleteAllSessions(req, res) {
@@ -437,7 +519,8 @@ async function joinSession(req, res) {
         container = await dbService.createPlayerContainer({
           container_url: attackerContainer.terminal_url,
           session_id: session.id,
-          status: 'started'
+          status: 'started',
+          ip_address: attackerContainer.ip_address
         });
 
         console.log('Created new container:', container.playerContainer_id);
@@ -507,6 +590,22 @@ async function getActiveSessions(req, res) {
   }
 }
 
+// POST /api/containers/deploy-victims
+// Build (if needed) and start all victim containers (level1, level2, ...)
+async function deployVictims(req, res) {
+  try {
+    const forceBuild = Boolean(req?.body?.forceBuild);
+    const victims = await dockerService.deployVictims({ forceBuild });
+    res.json({
+      success: true,
+      victims
+    });
+  } catch (error) {
+    console.error('Error deploying victim containers:', error);
+    res.status(500).json({ error: error.message });
+  }
+}
+
 module.exports = {
   createSession,
   getAllSessions,
@@ -520,8 +619,10 @@ module.exports = {
   attackerStart,
   victimStop,
   victimStart,
+  deployVictims,
   getLeaderboard,
   getEvents,
+  getPointsDistribution,
   deleteAllSessions,
   joinSession,
   getActiveSessions

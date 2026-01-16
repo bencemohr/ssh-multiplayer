@@ -1,5 +1,9 @@
 const { Pool } = require('pg');
 
+// Optional: central place for larger SQL (keeps this file mostly "original").
+// Only used for the extra functions we added for scoring/levels.
+const Q = require('./dbQueries');
+
 const pool = new Pool({
     host: process.env.DB_HOST || 'postgres',
     port: process.env.DB_PORT || 5432,
@@ -30,11 +34,121 @@ async function query(text, params) {
     return res;
 }
 
+// --- Levels (required for level scoring) ---
+
+const DEFAULT_LEVEL_POINTS = {
+    level1: 100,
+    level2: 150,
+    level3: 200,
+};
+
+function getAllowedLevelKeys() {
+    const fromEnv = String(process.env.ALLOWED_LEVEL_KEYS || '').trim();
+    if (!fromEnv) return new Set(Object.keys(DEFAULT_LEVEL_POINTS));
+
+    const keys = new Set();
+    for (const part of fromEnv.split(',')) {
+        const key = String(part).trim().toLowerCase();
+        if (key) keys.add(key);
+    }
+    return keys.size > 0 ? keys : new Set(Object.keys(DEFAULT_LEVEL_POINTS));
+}
+
+function coerceSelectedLevelsToArray(selectedLevels) {
+    if (Array.isArray(selectedLevels)) return selectedLevels;
+    if (selectedLevels === undefined || selectedLevels === null) return [];
+
+    const raw = String(selectedLevels).trim();
+    if (!raw) return [];
+
+    if (raw.startsWith('[')) {
+        try {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) return parsed;
+        } catch {
+            // ignore
+        }
+    }
+
+    return raw
+        .split(',')
+        .map(s => String(s).trim())
+        .filter(Boolean);
+}
+
+function parseSelectedLevelKeys(selectedLevels) {
+    const allowed = getAllowedLevelKeys();
+    const raw = coerceSelectedLevelsToArray(selectedLevels);
+    const result = [];
+    const seen = new Set();
+
+    for (const item of raw) {
+        const key = String(item).trim().toLowerCase();
+        if (!key) continue;
+        if (!allowed.has(key)) continue;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        result.push(key);
+    }
+
+    if (result.length === 0) {
+        const allowedList = Array.from(allowed).sort().join(', ');
+        const err = new Error(`selectedLevels must include at least one valid level (${allowedList})`);
+        err.statusCode = 400;
+        err.code = 'VALIDATION_ERROR';
+        throw err;
+    }
+
+    return result;
+}
+
+async function ensureLevelsForSession(sessionId, sessionCode, selectedLevelKeys) {
+    for (const key of selectedLevelKeys) {
+        const levelId = generateId();
+        const serviceName = `mits-s${sessionCode}-${key}`;
+        const points = DEFAULT_LEVEL_POINTS[key] ?? 0;
+
+        // Uses the unique constraint on level.service_name to avoid duplicates.
+        await query(Q.INSERT_LEVEL_FOR_SESSION, [levelId, sessionId, serviceName, points]);
+    }
+}
+
+// --- Scoring (JS-owned recompute from logs) ---
+
+async function recomputePlayerContainerScore(playerContainerId) {
+    const rawPenalty = Number.parseInt(String(process.env.HINT_PENALTY || '5'), 10);
+    const hintPenalty = Number.isNaN(rawPenalty) ? 5 : rawPenalty;
+
+    const res = await query(Q.RECOMPUTE_PLAYER_CONTAINER_SCORE, [playerContainerId, hintPenalty]);
+    return res.rows[0] || null;
+}
+
 // --- Session Management ---
 
 async function createSession(data) {
     const id = generateId();
-    const sessionCode = Math.floor(100000 + Math.random() * 900000); // 6 digit code
+
+    // Avoid collisions (important because level.service_name is globally UNIQUE and includes sessionCode).
+    let sessionCode;
+    for (let attempt = 0; attempt < 10; attempt++) {
+        const candidate = Math.floor(100000 + Math.random() * 900000);
+        const exists = await query(Q.SESSION_CODE_EXISTS, [candidate]);
+        if (exists.rowCount === 0) {
+            sessionCode = candidate;
+            break;
+        }
+    }
+
+    if (!sessionCode) {
+        throw new Error('Failed to generate a unique session code. Please retry.');
+    }
+
+    // Default to allowed levels if not provided by client.
+    const selectedLevelKeys = parseSelectedLevelKeys(
+        data.selectedLevels === undefined || data.selectedLevels === null
+            ? Array.from(getAllowedLevelKeys())
+            : data.selectedLevels
+    );
 
     const queryText = `
     INSERT INTO "session" (
@@ -51,14 +165,19 @@ async function createSession(data) {
         data.durationSecond || 3600,
         data.maxPlayers || 10,
         'pending', // Initial status
-        data.selectedLevels || 'level1,level2',
+        selectedLevelKeys.join(','),
         data.totalFlag_count || 10,
         data.maxPlayersPerTeam || 1
     ];
 
     try {
         const res = await query(queryText, values);
-        return res.rows[0];
+        const session = res.rows[0];
+
+        // Create rows in the level table for this session (used for level score calculation).
+        await ensureLevelsForSession(session.id, session.sessionCode, selectedLevelKeys);
+
+        return session;
     } catch (err) {
         console.error('Error creating session', err);
         throw err;
@@ -81,9 +200,9 @@ async function updateSessionStatus(id, status) {
 }
 
 async function getPendingSession() {
-    // Basic logic: find the most recent pending session
-    // In a real app, the user might select which session to join via code
-    const res = await query('SELECT * FROM "session" WHERE session_status = $1 ORDER BY "createdAt" DESC LIMIT 1', ['pending']);
+    // Basic logic: find the most recent pending or active session
+    // This allows ghost containers to attach to running games
+    const res = await query('SELECT * FROM "session" WHERE session_status IN ($1, $2) ORDER BY "createdAt" DESC LIMIT 1', ['pending', 'active']);
     return res.rows[0];
 }
 
@@ -112,8 +231,8 @@ async function createPlayerContainer(data) {
     INSERT INTO "playerContainer" (
       "playerContainer_id", "containerCode", "container_url", 
       "userConnected_count", "session_id", "totalScore", 
-      "containerStatus"
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+      "containerStatus", "ip_address"
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
     RETURNING *
   `;
 
@@ -124,7 +243,8 @@ async function createPlayerContainer(data) {
         0, // userConnected_count
         data.session_id,
         0, // totalScore
-        data.status || 'creating'
+        data.status || 'creating',
+        data.ip_address || null
     ];
 
     try {
@@ -145,6 +265,57 @@ async function updateContainerStatus(id, status) {
         console.error('Error updating container status', err);
         throw err;
     }
+}
+
+async function findContainerByCode(containerCode) {
+    if (containerCode === undefined || containerCode === null) return null;
+    const normalized = String(containerCode).trim();
+    if (!normalized) return null;
+
+    const res = await query('SELECT * FROM "playerContainer" WHERE "containerCode" = $1 LIMIT 1', [normalized]);
+    return res.rows[0] || null;
+}
+
+async function findContainerByUsername(username) {
+    if (!username) return null;
+    const normalized = String(username).trim().toLowerCase();
+    if (!normalized) return null;
+
+    const res = await query(
+        `
+          SELECT pc.*
+          FROM "user" u
+          JOIN "playerContainer" pc ON pc."playerContainer_id" = u."playerContainer_id"
+          WHERE LOWER(u."nickName") = $1
+          LIMIT 1
+        `,
+        [normalized]
+    );
+    return res.rows[0] || null;
+}
+
+async function findContainerByTerminalPathSegment(pathSegment) {
+    if (!pathSegment) return null;
+    const normalized = String(pathSegment).trim();
+    if (!normalized) return null;
+
+    const res = await query(
+        'SELECT * FROM "playerContainer" WHERE "container_url" ILIKE $1 LIMIT 1',
+        [`%${normalized}%`]
+    );
+    return res.rows[0] || null;
+}
+
+async function getPlayerContainerByIp(ipAddress) {
+    if (!ipAddress) return null;
+    const normalized = String(ipAddress).trim();
+    if (!normalized) return null;
+
+    const res = await query(
+        'SELECT * FROM "playerContainer" WHERE "ip_address" = $1 LIMIT 1',
+        [normalized]
+    );
+    return res.rows[0] || null;
 }
 
 // --- Event Logging ---
@@ -170,11 +341,7 @@ async function logBreach(data) {
     try {
         const res = await query(queryText, values);
 
-        // Update totalScore in playerContainer
-        await query(
-            'UPDATE "playerContainer" SET "totalScore" = "totalScore" + $1 WHERE "playerContainer_id" = $2',
-            [values[4], data.playerContainer_id]
-        );
+        await recomputePlayerContainerScore(data.playerContainer_id);
 
         return res.rows[0];
     } catch (err) {
@@ -204,11 +371,7 @@ async function logHint(data) {
     try {
         const res = await query(queryText, values);
 
-        // Update totalScore in playerContainer
-        await query(
-            'UPDATE "playerContainer" SET "totalScore" = "totalScore" + $1 WHERE "playerContainer_id" = $2',
-            [values[4], data.playerContainer_id]
-        );
+        await recomputePlayerContainerScore(data.playerContainer_id);
 
         return res.rows[0];
     } catch (err) {
@@ -217,9 +380,62 @@ async function logHint(data) {
     }
 }
 
-async function getAdminByNickname(nickname) {
-    const res = await query('SELECT * FROM "admin" WHERE "nickName" = $1', [nickname]);
+async function logEvent(data) {
+    const id = generateId();
+
+    const queryText = `
+      INSERT INTO "container_logs" (
+        "container_logs_id", "event_type", "playerContainer_id", "metaData", "point"
+      ) VALUES ($1, $2, $3, $4, $5)
+      RETURNING *
+    `;
+
+    const values = [
+        id,
+        data.event_type,
+        data.playerContainer_id,
+        data.metaData || {},
+        data.point ?? null,
+    ];
+
+    const res = await query(queryText, values);
+    await recomputePlayerContainerScore(data.playerContainer_id);
     return res.rows[0];
+}
+
+async function getLevelCompletionPoint(sessionId, levelKey) {
+    if (!sessionId || !levelKey) return 0;
+    const normalized = String(levelKey).trim();
+    if (!normalized) return 0;
+
+    const res = await query(Q.GET_LEVEL_COMPLETION_POINT, [sessionId, normalized]);
+    const row = res.rows[0];
+    if (!row) return 0;
+    return Number.parseInt(String(row.level_completion_point), 10) || 0;
+}
+
+async function getPointDistribution(sessionId, hintPenaltyPerUse) {
+    const fromQuery = Number.parseInt(String(hintPenaltyPerUse), 10);
+    const fromEnv = Number.parseInt(String(process.env.HINT_PENALTY || '5'), 10);
+    const hintPenalty = !Number.isNaN(fromQuery)
+        ? fromQuery
+        : (Number.isNaN(fromEnv) ? 5 : fromEnv);
+
+    const res = await query(Q.POINT_DISTRIBUTION_FOR_SESSION, [sessionId, hintPenalty]);
+    return res.rows;
+}
+
+async function getAdminByNickname(nickname) {
+    const normalized = nickname !== undefined && nickname !== null ? String(nickname).trim() : '';
+    if (!normalized) return null;
+
+    // Deterministic: seed data may create multiple rows with the same nickName.
+    // Prefer the lowest admin_id (our real seeded admin is admin_id=1).
+    const res = await query(
+        'SELECT * FROM "admin" WHERE LOWER("nickName") = LOWER($1) ORDER BY "admin_id" ASC LIMIT 1',
+        [normalized]
+    );
+    return res.rows[0] || null;
 }
 
 async function getLeaderboard(sessionId) {
@@ -271,11 +487,17 @@ async function getLeaderboard(sessionId) {
 
 async function getRecentEvents(sessionId) {
     const queryText = `
-      SELECT cl.*, pc."containerCode"
+            SELECT
+                cl."container_logs_id",
+                cl."event_type",
+                cl."point",
+                cl."timestamp" as "createdAt",
+                cl."metaData",
+                pc."containerCode"
       FROM "container_logs" cl
       JOIN "playerContainer" pc ON cl."playerContainer_id" = pc."playerContainer_id"
       WHERE pc."session_id" = $1
-      ORDER BY cl."createdAt" DESC
+            ORDER BY cl."timestamp" DESC
       LIMIT 20
     `;
     const res = await query(queryText, [sessionId]);
@@ -434,15 +656,23 @@ async function getSessionPlayerCount(sessionId) {
 module.exports = {
     query,
     createSession,
+    ensureLevelsForSession,
     getSession,
     getAllSessions,
     updateSessionStatus,
     getPendingSession,
     createPlayerContainer,
     updateContainerStatus,
+    findContainerByCode,
+    findContainerByUsername,
+    findContainerByTerminalPathSegment,
+    getPlayerContainerByIp,
     logBreach,
     logHint,
+    logEvent,
+    getLevelCompletionPoint,
     getLeaderboard,
+    getPointDistribution,
     getRecentEvents,
     getAdminByNickname,
     deleteAllSessions,
@@ -452,6 +682,6 @@ module.exports = {
     createUser,
     incrementContainerUserCount,
     getActiveSessionsForJoin,
-    getSessionPlayerCount
+    getSessionPlayerCount,
+    recomputePlayerContainerScore
 };
-

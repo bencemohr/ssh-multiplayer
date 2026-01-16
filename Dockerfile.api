@@ -12,6 +12,11 @@ RUN npm ci
 # Copy source code
 COPY src ./src
 
+# Copy admin seed + entrypoint
+COPY seed-admin.js ./seed-admin.js
+COPY scripts/api-entrypoint.sh ./api-entrypoint.sh
+RUN chmod +x ./api-entrypoint.sh
+
 # Expose port
 EXPOSE 3001
 
@@ -19,5 +24,5 @@ EXPOSE 3001
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
   CMD node -e "require('http').get('http://localhost:3001/health', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"
 
-# Start app with nodemon for hot-reload in development
-CMD ["npx", "nodemon", "--legacy-watch", "src/server.js"]
+# Start app (generates admin password if needed, seeds admin user)
+CMD ["./api-entrypoint.sh"]
