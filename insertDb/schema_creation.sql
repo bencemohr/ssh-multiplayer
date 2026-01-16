@@ -37,7 +37,8 @@ CREATE TABLE IF NOT EXISTS "playerContainer"(
         'stopped',       
         'destroyed'
         )
-    ) NOT NULL
+    ) NOT NULL,
+    "ip_address" TEXT
 );
 
 CREATE TABLE IF NOT EXISTS "user"(

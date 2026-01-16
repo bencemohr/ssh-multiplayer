@@ -1,7 +1,11 @@
 const docker = require('../db/docker');
+<<<<<<< Updated upstream
 const fs = require('fs');
 const path = require('path');
 const tar = require('tar-fs');
+=======
+const os = require('os');
+>>>>>>> Stashed changes
 
 // Track port mappings: { containerId: hostPort }
 const containerPorts = {};
@@ -83,6 +87,7 @@ async function getContainerHostname(container) {
   }
 }
 
+<<<<<<< Updated upstream
 // Resolve which attacker container initiated an SSH connection by matching the client IP
 // (victims see the attacker container's network IP in SSH_CLIENT/SSH_CONNECTION).
 async function getAttackerHostnameByIp(remoteIp) {
@@ -115,6 +120,24 @@ async function getAttackerHostnameByIp(remoteIp) {
   }
 
   return null;
+=======
+// Helper to find the network the API is running on
+async function getCurrentNetwork() {
+  try {
+    // If not in docker, fallback
+    if (!process.env.DB_HOST) return 'bridge';
+
+    const hostname = os.hostname();
+    const container = docker.getContainer(hostname);
+    const data = await container.inspect();
+    const networks = data.NetworkSettings.Networks;
+    const networkName = Object.keys(networks)[0];
+    return networkName || 'bridge';
+  } catch (error) {
+    console.warn('Error detecting network, defaulting to ssh-multiplayer_default:', error.message);
+    return 'ssh-multiplayer_default';
+  }
+>>>>>>> Stashed changes
 }
 
 // Create an attacker container with gotty port mapping
@@ -147,7 +170,11 @@ async function createAttacker(name) {
         '3000/tcp': {}
       },
       HostConfig: {
+<<<<<<< Updated upstream
         NetworkMode: networkName,
+=======
+        NetworkMode: await getCurrentNetwork(),
+>>>>>>> Stashed changes
         PortBindings: {
           '3000/tcp': [{ HostPort: '0' }]
         }
@@ -156,6 +183,10 @@ async function createAttacker(name) {
 
     await container.start();
 
+<<<<<<< Updated upstream
+=======
+    // Inspect to find the assigned port and IP
+>>>>>>> Stashed changes
     const data = await container.inspect();
     const ports = data.NetworkSettings.Ports['3000/tcp'];
     const hostPort = ports && ports[0] ? ports[0].HostPort : null;

@@ -175,6 +175,7 @@ async function createAttacker(req, res) {
 // Log a breach/login event from container
 async function breach(req, res) {
   try {
+<<<<<<< Updated upstream
     let { remote_ip, username, containerCode, container_id, timestamp, level, point: pointFromBody, playerContainer_id } = req.body;
 
     console.log('Breach request received:', { remote_ip, username, containerCode, container_id, level, timestamp });
@@ -244,6 +245,57 @@ async function breach(req, res) {
         original_event: isLevelBreach ? 'level_breach' : 'breach_detected',
         detected_at: timestamp
       }
+=======
+    let { remote_ip, username, container_id, timestamp, playerContainer_id } = req.body;
+
+    // We need playerContainer_id to log to DB.
+    // The container script might only know its own hostname/ID.
+    // For now we assume the client sends playerContainer_id or we look it up.
+
+    console.log('Breach request received:', { remote_ip, username, container_id, timestamp });
+
+    // Since we don't have a lookup by docker ID in dbService yet, we'll assume it's passed or we just rely on what we can.
+
+    // If we only have container_id (docker ID), we'd need to look up playerContainer_id.
+    // Logic: If playerContainer_id is missing, try to resolve it via remote_ip
+    if (!playerContainer_id && remote_ip) {
+      const pContainer = await dbService.getPlayerContainerByIp(remote_ip);
+      if (pContainer) {
+        playerContainer_id = pContainer.playerContainer_id;
+        console.log(`Resolved IP ${remote_ip} to playerContainerId ${playerContainer_id}`);
+      } else {
+        console.warn(`Could not resolve IP ${remote_ip} to any player container.`);
+
+        // CRITICAL FIX: Create a "Ghost" container so we don't lose the log
+        // This handles cases where the IP changed or DB was wiped but container persisted
+        console.log('Creating Ghost Container for unmapped IP...');
+        try {
+          const ghost = await dbService.createPlayerContainer({
+            container_url: `http://${remote_ip}:3000`, // Guess
+            session_id: (await dbService.getPendingSession())?.id || 1, // Fallback to asking DB for a sesion
+            status: 'ghost',
+            ip_address: remote_ip
+          });
+          playerContainer_id = ghost.playerContainer_id;
+          console.log(`Created Ghost Container ID: ${playerContainer_id}`);
+        } catch (e) {
+          console.error("Failed to create ghost container:", e);
+          // Last resort fallback
+          playerContainer_id = 1;
+        }
+      }
+    }
+
+    if (!playerContainer_id) {
+      console.warn("Missing playerContainer_id for breach log, defaulting to 1");
+      playerContainer_id = 1;
+    }
+
+    const log = await dbService.logBreach({
+      playerContainer_id: playerContainer_id,
+      point: 10,
+      metaData: { remote_ip, username, container_id, timestamp }
+>>>>>>> Stashed changes
     });
 
     res.status(201).json({ success: true, log });

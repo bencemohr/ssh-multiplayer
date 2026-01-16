@@ -267,6 +267,7 @@ async function updateContainerStatus(id, status) {
     }
 }
 
+<<<<<<< Updated upstream
 async function findContainerByCode(containerCode) {
     if (containerCode === undefined || containerCode === null) return null;
     const normalized = String(containerCode).trim();
@@ -316,6 +317,11 @@ async function getPlayerContainerByIp(ipAddress) {
         [normalized]
     );
     return res.rows[0] || null;
+=======
+async function getPlayerContainerByIp(ip) {
+    const res = await query('SELECT * FROM "playerContainer" WHERE "ip_address" = $1', [ip]);
+    return res.rows[0];
+>>>>>>> Stashed changes
 }
 
 // --- Event Logging ---
@@ -682,6 +688,12 @@ module.exports = {
     createUser,
     incrementContainerUserCount,
     getActiveSessionsForJoin,
+<<<<<<< Updated upstream
     getSessionPlayerCount,
     recomputePlayerContainerScore
+=======
+    getActiveSessionsForJoin,
+    getSessionPlayerCount,
+    getPlayerContainerByIp
+>>>>>>> Stashed changes
 };
