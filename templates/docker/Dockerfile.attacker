@@ -38,7 +38,7 @@ RUN mkdir -p /usr/share/wordlists && \
 
 # Copy hint script
 COPY templates/docker/hint.sh /usr/local/bin/hint
-RUN chmod +x /usr/local/bin/hint
+RUN sed -i 's/\r$//' /usr/local/bin/hint && chmod +x /usr/local/bin/hint
 
 # Set bash as default shell
 SHELL ["/bin/bash", "-c"]

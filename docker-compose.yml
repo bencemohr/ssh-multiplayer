@@ -33,13 +33,19 @@ services:
       DB_NAME: ${DB_NAME}
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
-      NODE_ENV: production
+      NODE_ENV: development
       PORT: 3001
+      FORCE_BUILD_VICTIMS: "true"
+      ADMIN_PASSWORD_FILE: /data/admin_password
+      ADMIN_NICKNAME: admin
     depends_on:
       postgres:
         condition: service_healthy
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+      - ./src:/app/src
+      - ./templates:/app/templates
+      - admin_secret:/data
     restart: unless-stopped
 
   # PostgreSQL Database
@@ -57,10 +63,59 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./insertDb:/docker-entrypoint-initdb.d
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}" ]
       interval: 5s
       timeout: 5s
       retries: 5
+
+  # Attacker Image Builder (ensures image exists)
+  attacker-image:
+    build:
+      context: .
+      dockerfile: templates/docker/Dockerfile.attacker
+    image: mits-attacker:latest
+    entrypoint: [ "/bin/true" ]
+    restart: "no"
+
+  # Game Levels
+  level1:
+    build:
+      context: .
+      dockerfile: templates/docker/Dockerfile.level1
+    container_name: level1
+    hostname: level1
+    restart: unless-stopped
+    labels:
+      - "type=MITS-VICTIM"
+    environment:
+      - API_PORT=3001
+      - API_HOST=api
+
+  level2:
+    build:
+      context: .
+      dockerfile: templates/docker/Dockerfile.level2
+    container_name: level2
+    hostname: level2
+    restart: unless-stopped
+    labels:
+      - "type=MITS-VICTIM"
+    environment:
+      - API_PORT=3001
+      - API_HOST=api
+
+  level3:
+    build:
+      context: .
+      dockerfile: templates/docker/Dockerfile.level3
+    container_name: level3
+    hostname: level3
+    restart: unless-stopped
+    labels:
+      - "type=MITS-VICTIM"
+    environment:
+      - API_PORT=3001
+      - API_HOST=api
 
   # pgAdmin4 - Database Management UI
   pgadmin:
@@ -82,3 +137,4 @@ services:
 volumes:
   postgres_data:
   pgadmin_data:
+  admin_secret:

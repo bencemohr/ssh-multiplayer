@@ -1,12 +1,55 @@
 const express = require('express');
 const router = express.Router();
 const controller = require('../controllers/controller');
+const authController = require('../controllers/authController');
+
+// --- Auth Routes ---
+router.post('/auth/login', authController.login);
+
+// --- Session Routes ---
 
 // GET /api
 // Health check
 router.get('/', (req, res) => {
   res.json({ message: 'Hello World! API is running' });
 });
+
+// POST /api/session
+// Create a new game session
+router.post('/session', controller.createSession);
+
+// GET /api/sessions
+// Get all sessions
+router.get('/sessions', controller.getAllSessions);
+
+// GET /api/sessions/active
+// Get active sessions for players to join
+router.get('/sessions/active', controller.getActiveSessions);
+
+// POST /api/containers/deploy-victims
+// Manual deploy for admin
+router.post('/containers/deploy-victims', controller.deployVictims);
+
+// DELETE /api/sessions
+// Clear all session history
+router.delete('/sessions', controller.deleteAllSessions);
+
+// PUT /api/sessions/:id/status
+// Update session status
+router.put('/sessions/:id/status', controller.updateSessionStatus);
+
+// GET /api/sessions/:id/leaderboard
+router.get('/sessions/:id/leaderboard', controller.getLeaderboard);
+
+// GET /api/sessions/:id/points-distribution
+router.get('/sessions/:id/points-distribution', controller.getPointsDistribution);
+
+// GET /api/sessions/:id/events
+router.get('/sessions/:id/events', controller.getEvents);
+
+// POST /api/join
+// Player joins a session
+router.post('/join', controller.joinSession);
 
 // POST /api/createattacker
 // Create a new attacker container

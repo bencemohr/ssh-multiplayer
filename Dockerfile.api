@@ -1,16 +1,23 @@
 # API Server Dockerfile
-FROM node:18-alpine
+FROM node:22-alpine
 
 WORKDIR /app
 
 # Copy package files
 COPY package.json package-lock.json ./
 
-# Install dependencies
-RUN npm ci --only=production
+# Install all dependencies (including devDependencies for nodemon)
+RUN npm ci
 
 # Copy source code
 COPY src ./src
+
+# Copy admin seed + entrypoint
+COPY seed-admin.js ./seed-admin.js
+COPY scripts/api-entrypoint.sh ./api-entrypoint.sh
+
+# Fix line endings (dos2unix) and make executable
+RUN sed -i 's/\r$//' ./api-entrypoint.sh && chmod +x ./api-entrypoint.sh
 
 # Expose port
 EXPOSE 3001
@@ -19,5 +26,5 @@ EXPOSE 3001
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
   CMD node -e "require('http').get('http://localhost:3001/health', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"
 
-# Start app
-CMD ["node", "src/server.js"]
+# Start app (generates admin password if needed, seeds admin user)
+CMD ["./api-entrypoint.sh"]

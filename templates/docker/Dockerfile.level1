@@ -10,6 +10,9 @@ RUN echo "root:password123" | chpasswd
 RUN mkdir -p /etc/ssh && \
     ssh-keygen -A
 
+ENV LEVEL_KEY=level1
+ENV LEVEL_POINTS=100
+
 # Create sshd_config with misconfigurations
 RUN echo "Port 22" > /etc/ssh/sshd_config && \
     echo "PermitRootLogin yes" >> /etc/ssh/sshd_config && \
@@ -33,7 +36,7 @@ RUN echo "╔══════════════════════�
 
 # Copy login logger script
 COPY templates/docker/login-logger.sh /usr/local/bin/login-logger.sh
-RUN chmod +x /usr/local/bin/login-logger.sh
+RUN sed -i 's/\r$//' /usr/local/bin/login-logger.sh && chmod +x /usr/local/bin/login-logger.sh
 
 # Create a flag file in root directory
 RUN echo "FLAG{ssh_default_credentials_vulnerable}" > /root/flag.txt && \

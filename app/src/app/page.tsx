@@ -2,7 +2,8 @@
 
 import Header from '@/components/Header'
 import { useTheme } from '@/contexts/ThemeContext'
-import { memo, useMemo, useState } from 'react'
+import { memo, useMemo, useState, useEffect } from 'react'
+import { API } from '@/lib/api'
 
 interface Participant {
   place: number
@@ -16,13 +17,13 @@ interface Participant {
 const participants: Participant[] = []
 
 // Memoized table row component
-const ParticipantRow = memo(function ParticipantRow({ 
-  participant, 
-  isDark, 
-  borderColor, 
-  hoverRow, 
-  textTertiary 
-}: { 
+const ParticipantRow = memo(function ParticipantRow({
+  participant,
+  isDark,
+  borderColor,
+  hoverRow,
+  textTertiary
+}: {
   participant: Participant
   isDark: boolean
   borderColor: string
@@ -66,27 +67,79 @@ export default function Home() {
   const { isDark, classes } = useTheme()
   const [statusFilter, setStatusFilter] = useState<'All' | 'In progress' | 'Finished'>('All')
   const [searchQuery, setSearchQuery] = useState('')
-  
+  const [session, setSession] = useState<{ id: string, code: string, status: string, endTime: Date | null } | null>(null)
+  const [participants, setParticipants] = useState<Participant[]>([])
+
   // Use pre-computed classes from context
   const { bgMain, bgCard, borderColor, titleColor, textPrimary, textSecondary, textTertiary, inputBg, inputBorder, buttonSecondary, hoverRow } = classes
   const inputDarkBg = isDark ? 'bg-[#0a0a0f] text-white' : `${inputBg} ${textTertiary}`
   const placeholderColor = isDark ? 'placeholder-[#808090]' : 'placeholder-[#9ca3af]'
 
+  const fetchSessionAndLeaderboard = async () => {
+    try {
+      // 1. Get active session
+      const sessionRes = await fetch(API.sessions());
+      const sessionData = await sessionRes.json();
+
+      if (!sessionData.success || !Array.isArray(sessionData.sessions)) return;
+
+      // Find active or pending session
+      const active = sessionData.sessions.find((s: any) => s.session_status === 'active' || s.session_status === 'pending');
+
+      if (active) {
+        setSession({
+          id: active.id,
+          code: active.sessionCode || active.id,
+          status: active.session_status,
+          endTime: active.destroyedAt ? new Date(active.destroyedAt) : null // Should calculate based on duration if active
+        });
+
+        // 2. Get leaderboard
+        const lbRes = await fetch(API.sessionLeaderboard(active.id));
+        const lbData = await lbRes.json();
+
+        if (lbData.success && Array.isArray(lbData.leaderboard)) {
+          const mapped = lbData.leaderboard.map((p: any, idx: number) => ({
+            place: idx + 1,
+            name: p.displayName || `Player ${idx + 1}`,
+            status: p.containerStatus || 'Active',
+            time: '-',
+            points: parseInt(p.totalScore) || 0
+          }));
+          setParticipants(mapped);
+        }
+      } else {
+        setSession(null);
+        setParticipants([]);
+      }
+
+    } catch (e) {
+      console.error("Failed to fetch leaderboard data", e);
+    }
+  }
+
+  // Poll for updates
+  useEffect(() => {
+    fetchSessionAndLeaderboard();
+    const interval = setInterval(fetchSessionAndLeaderboard, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Filter participants based on status and search query
   const filteredParticipants = useMemo(() => {
     return participants.filter(participant => {
       // Status filter
-      const statusMatch = statusFilter === 'All' || 
+      const statusMatch = statusFilter === 'All' ||
         (statusFilter === 'Finished' && participant.status === 'Finished') ||
         (statusFilter === 'In progress' && participant.status !== 'Finished')
-      
+
       // Search filter
-      const searchMatch = searchQuery === '' || 
+      const searchMatch = searchQuery === '' ||
         participant.name.toLowerCase().includes(searchQuery.toLowerCase())
-      
+
       return statusMatch && searchMatch
     })
-  }, [statusFilter, searchQuery])
+  }, [statusFilter, searchQuery, participants])
 
   return (
     <div className={`min-h-screen ${bgMain} ${textPrimary}`}>
@@ -105,12 +158,12 @@ export default function Home() {
           <div className="grid grid-cols-3 gap-8">
             <div>
               <p className={`text-xs ${textSecondary} font-mono mb-2`}>SESSION ID</p>
-              <p className={`text-2xl ${textTertiary} font-mono`}>--</p>
+              <p className={`text-2xl ${textTertiary} font-mono`}>{session ? `#${session.code}` : '--'}</p>
             </div>
             <div>
               <p className={`text-xs ${textSecondary} font-mono mb-2`}>STATUS</p>
-              <div className={`inline-block ${isDark ? 'bg-[rgba(128,128,144,0.2)]' : 'bg-[#e5e7eb]'} ${textSecondary} px-3 py-1 rounded-full text-sm font-mono`}>
-                No active session
+              <div className={`inline-block ${session ? (session.status === 'active' ? (isDark ? 'bg-[rgba(1,255,136,0.2)] text-[#0f8]' : 'bg-[#d1fae5] text-[#065f46]') : 'bg-yellow-500/20 text-yellow-500') : (isDark ? 'bg-[rgba(128,128,144,0.2)]' : 'bg-[#e5e7eb]')} px-3 py-1 rounded-full text-sm font-mono`}>
+                {session ? session.status.toUpperCase() : 'No active session'}
               </div>
             </div>
             <div>
@@ -124,19 +177,19 @@ export default function Home() {
         <div className={`${bgCard} border ${borderColor} rounded-lg p-6 mb-6 shadow-[0px_0px_20px_0px_rgba(0,255,136,0.1)]`}>
           <div className="flex justify-between items-center">
             <div className="flex gap-2">
-              <button 
+              <button
                 onClick={() => setStatusFilter('All')}
                 className={`${statusFilter === 'All' ? 'bg-[#0f8] text-[#0a0a0f] shadow-[0px_0px_10px_0px_rgba(0,255,136,0.3)]' : `${buttonSecondary} ${textTertiary}`} px-4 py-2 rounded font-mono text-sm transition-all`}
               >
                 All
               </button>
-              <button 
+              <button
                 onClick={() => setStatusFilter('In progress')}
                 className={`${statusFilter === 'In progress' ? 'bg-[#0f8] text-[#0a0a0f] shadow-[0px_0px_10px_0px_rgba(0,255,136,0.3)]' : `${buttonSecondary} ${textTertiary}`} px-4 py-2 rounded font-mono text-sm transition-all`}
               >
                 In progress
               </button>
-              <button 
+              <button
                 onClick={() => setStatusFilter('Finished')}
                 className={`${statusFilter === 'Finished' ? 'bg-[#0f8] text-[#0a0a0f] shadow-[0px_0px_10px_0px_rgba(0,255,136,0.3)]' : `${buttonSecondary} ${textTertiary}`} px-4 py-2 rounded font-mono text-sm transition-all`}
               >
