@@ -15,7 +15,9 @@ COPY src ./src
 # Copy admin seed + entrypoint
 COPY seed-admin.js ./seed-admin.js
 COPY scripts/api-entrypoint.sh ./api-entrypoint.sh
-RUN chmod +x ./api-entrypoint.sh
+
+# Fix line endings (dos2unix) and make executable
+RUN sed -i 's/\r$//' ./api-entrypoint.sh && chmod +x ./api-entrypoint.sh
 
 # Expose port
 EXPOSE 3001

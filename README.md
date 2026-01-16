@@ -20,5 +20,11 @@ The home repository for the MITS Multiplayer API
     docker compose exec api cat /data/admin_password
     ```
 
+4.  **Deep Cleanup**:
+    If you need to completely wipe all containers (including dynamic player containers):
+    ```bash
+    npm run docker:clean
+    ```
+
 ## Development
 Carried out by IT2E for Maritime IT Security Research Group, NHL Stenden University of Applied Sciences. Emmen.

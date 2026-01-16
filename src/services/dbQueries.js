@@ -114,7 +114,7 @@ const RECOMPUTE_PLAYER_CONTAINER_SCORE = `
         SELECT DISTINCT NULLIF(cl."metaData"->>'levelKey', '') AS level_key
         FROM "container_logs" cl
         WHERE cl."playerContainer_id" = pc."playerContainer_id"
-          AND cl."event_type" = 'level_completed'
+          AND (cl."event_type" = 'level_completed' OR cl."event_type" LIKE 'level%')
           AND NULLIF(cl."metaData"->>'levelKey', '') IS NOT NULL
       ) dl
       JOIN "level" l
@@ -157,7 +157,7 @@ const POINT_DISTRIBUTION_FOR_SESSION = `
       FROM "container_logs" cl
       JOIN "playerContainer" pc ON pc."playerContainer_id" = cl."playerContainer_id"
       WHERE pc."session_id" = $1
-        AND cl."event_type" = 'level_completed'
+        AND (cl."event_type" = 'level_completed' OR cl."event_type" LIKE 'level%')
         AND NULLIF(cl."metaData"->>'levelKey', '') IS NOT NULL
       GROUP BY cl."playerContainer_id", NULLIF(cl."metaData"->>'levelKey', '')
     ),
@@ -208,7 +208,7 @@ const GET_LEADERBOARD = `
       SELECT COUNT(*)
       FROM "container_logs"
       WHERE "playerContainer_id" = pc."playerContainer_id"
-        AND "event_type" = 'level_completed'
+        AND ("event_type" = 'level_completed' OR "event_type" LIKE 'level%')
     ) as levels_completed,
     (
       SELECT STRING_AGG(u."nickName", ', ')

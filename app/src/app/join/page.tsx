@@ -43,7 +43,7 @@ export default function JoinPage() {
   const [activeSessions, setActiveSessions] = useState<ActiveSession[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
-  const [success, setSuccess] = useState<{ teamUrl: string; teamCode: number } | null>(null)
+  const [success, setSuccess] = useState<{ teamUrl: string; teamCode: number; sessionCode: number } | null>(null)
 
   const { bgMain, bgCard, borderColor, titleColor, textPrimary, textSecondary, textTertiary, inputBg, inputBorder } = classes
   const inputDarkBg = isDark ? 'bg-[#0a0a0f] text-white' : `${inputBg} ${textTertiary}`
@@ -102,6 +102,7 @@ export default function JoinPage() {
       setSuccess({
         teamUrl: url,
         teamCode: data.team.code,
+        sessionCode: data.session.code
       })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred')
@@ -143,14 +144,22 @@ export default function JoinPage() {
                     </p>
                   </div>
                 </div>
-                <a
-                  href={success.teamUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block w-full bg-[#0f8] text-[#0a0a0f] px-8 py-4 rounded font-mono text-lg text-center shadow-[0px_0px_15px_0px_rgba(0,255,136,0.2)] hover:shadow-[0px_0px_25px_0px_rgba(0,255,136,0.3)] transition-shadow"
-                >
-                  Open Terminal
-                </a>
+                {(() => {
+                  const joinedSession = activeSessions.find(s => s.code === success.sessionCode);
+                  const isPending = joinedSession?.status === 'pending';
+
+                  return (
+                    <a
+                      href={isPending ? '#' : success.teamUrl}
+                      target={isPending ? undefined : "_blank"}
+                      rel={isPending ? undefined : "noopener noreferrer"}
+                      onClick={(e) => isPending && e.preventDefault()}
+                      className={`block w-full ${isPending ? 'bg-gray-500 cursor-not-allowed' : 'bg-[#0f8] hover:shadow-[0px_0px_25px_0px_rgba(0,255,136,0.3)]'} text-[#0a0a0f] px-8 py-4 rounded font-mono text-lg text-center shadow-[0px_0px_15px_0px_rgba(0,255,136,0.2)] transition-all`}
+                    >
+                      {isPending ? 'Waiting for host to start...' : 'Open Terminal'}
+                    </a>
+                  );
+                })()}
                 <button
                   onClick={() => {
                     setSuccess(null)

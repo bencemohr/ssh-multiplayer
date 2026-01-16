@@ -37,9 +37,9 @@ async function query(text, params) {
 // --- Levels (required for level scoring) ---
 
 const DEFAULT_LEVEL_POINTS = {
-    level1: 100,
-    level2: 150,
-    level3: 200,
+    level1: 200,
+    level2: 300,
+    level3: 400,
 };
 
 function getAllowedLevelKeys() {
@@ -116,8 +116,8 @@ async function ensureLevelsForSession(sessionId, sessionCode, selectedLevelKeys)
 // --- Scoring (JS-owned recompute from logs) ---
 
 async function recomputePlayerContainerScore(playerContainerId) {
-    const rawPenalty = Number.parseInt(String(process.env.HINT_PENALTY || '5'), 10);
-    const hintPenalty = Number.isNaN(rawPenalty) ? 5 : rawPenalty;
+    const rawPenalty = Number.parseInt(String(process.env.HINT_PENALTY || '50'), 10);
+    const hintPenalty = Number.isNaN(rawPenalty) ? 50 : rawPenalty;
 
     const res = await query(Q.RECOMPUTE_PLAYER_CONTAINER_SCORE, [playerContainerId, hintPenalty]);
     return res.rows[0] || null;
@@ -267,7 +267,6 @@ async function updateContainerStatus(id, status) {
     }
 }
 
-<<<<<<< Updated upstream
 async function findContainerByCode(containerCode) {
     if (containerCode === undefined || containerCode === null) return null;
     const normalized = String(containerCode).trim();
@@ -317,11 +316,6 @@ async function getPlayerContainerByIp(ipAddress) {
         [normalized]
     );
     return res.rows[0] || null;
-=======
-async function getPlayerContainerByIp(ip) {
-    const res = await query('SELECT * FROM "playerContainer" WHERE "ip_address" = $1', [ip]);
-    return res.rows[0];
->>>>>>> Stashed changes
 }
 
 // --- Event Logging ---
@@ -422,10 +416,10 @@ async function getLevelCompletionPoint(sessionId, levelKey) {
 
 async function getPointDistribution(sessionId, hintPenaltyPerUse) {
     const fromQuery = Number.parseInt(String(hintPenaltyPerUse), 10);
-    const fromEnv = Number.parseInt(String(process.env.HINT_PENALTY || '5'), 10);
+    const fromEnv = Number.parseInt(String(process.env.HINT_PENALTY || '50'), 10);
     const hintPenalty = !Number.isNaN(fromQuery)
         ? fromQuery
-        : (Number.isNaN(fromEnv) ? 5 : fromEnv);
+        : (Number.isNaN(fromEnv) ? 50 : fromEnv);
 
     const res = await query(Q.POINT_DISTRIBUTION_FOR_SESSION, [sessionId, hintPenalty]);
     return res.rows;
@@ -688,12 +682,6 @@ module.exports = {
     createUser,
     incrementContainerUserCount,
     getActiveSessionsForJoin,
-<<<<<<< Updated upstream
     getSessionPlayerCount,
     recomputePlayerContainerScore
-=======
-    getActiveSessionsForJoin,
-    getSessionPlayerCount,
-    getPlayerContainerByIp
->>>>>>> Stashed changes
 };
